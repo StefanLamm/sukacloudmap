@@ -1,0 +1,9 @@
+{
+  "query": "合肥市人民政府",
+  "provider": "https://photon.komoot.io/api/",
+  "real_truck_calls": 0,
+  "business_addresses_sent": false,
+  "status": "REACHABLE",
+  "candidate_count": 1,
+  "automatic_exact_match_count": 1
+}

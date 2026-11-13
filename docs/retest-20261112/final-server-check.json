@@ -1,0 +1,116 @@
+{
+  "version": "0.11.1",
+  "servers": {
+    "main": {
+      "port": 8000,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "development",
+        "test_fixture": false,
+        "default_delivery_date": null,
+        "label": ""
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-D5Y7SOu9.js",
+          "sha256": "48e9c0bc83852c7e8a9e17e93e385b9bf2ec8323762bd98ba5b658775bfcd0c3"
+        }
+      ],
+      "amap_csp": true
+    },
+    "trial": {
+      "port": 8001,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "test",
+        "test_fixture": true,
+        "default_delivery_date": "2026-08-06",
+        "label": "隔离测试 · 模拟道路，不能执行"
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-D5Y7SOu9.js",
+          "sha256": "48e9c0bc83852c7e8a9e17e93e385b9bf2ec8323762bd98ba5b658775bfcd0c3"
+        }
+      ],
+      "amap_csp": true
+    },
+    "history": {
+      "port": 8765,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "test",
+        "test_fixture": true,
+        "default_delivery_date": "2026-08-06",
+        "label": "隔离测试 · 模拟道路，不能执行"
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-D5Y7SOu9.js",
+          "sha256": "48e9c0bc83852c7e8a9e17e93e385b9bf2ec8323762bd98ba5b658775bfcd0c3"
+        }
+      ],
+      "amap_csp": true
+    },
+    "driving_archive": {
+      "port": 8766,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "test",
+        "test_fixture": false,
+        "default_delivery_date": null,
+        "label": ""
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-D5Y7SOu9.js",
+          "sha256": "48e9c0bc83852c7e8a9e17e93e385b9bf2ec8323762bd98ba5b658775bfcd0c3"
+        }
+      ],
+      "amap_csp": true
+    }
+  },
+  "rate_limits": {
+    "web_each_service_qps": 3,
+    "js_proxy_qps": 10,
+    "shared_path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/amap/rate-limit.db",
+    "safety_interval_ms": 20,
+    "monthly_usage_limiter": false,
+    "scope": "Same host and shared file; no multi-host distributed limit claim"
+  },
+  "local_configuration": {
+    "map_provider": "AMAP",
+    "route_mode": "DRIVING",
+    "selected_calls_enabled": true,
+    "truck_calls_enabled": false,
+    "env_mode": "0o600"
+  }
+}

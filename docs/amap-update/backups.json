@@ -1,0 +1,16 @@
+[
+  {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/amap-update-20261112-134228/main.db",
+    "schema": "0005_location_tasks",
+    "sha256": "ab962fdf0d14346753228b74370f182b53dc5e071fe60cc8c67ca5cc863f632f",
+    "integrity": "ok"
+  },
+  {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/amap-update-20261112-134228/trial.db",
+    "schema": "0005_location_tasks",
+    "sha256": "100cbb75f062e5c03ee03127d323dab1ed12610d60e3d6a7eea5be2c8f7e6a1c",
+    "integrity": "ok"
+  }
+]

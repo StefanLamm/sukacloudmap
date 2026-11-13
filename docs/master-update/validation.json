@@ -1,0 +1,102 @@
+{
+  "version": "0.10.0",
+  "date": "2026-11-12",
+  "status": "PASS",
+  "schema": "0005_location_tasks",
+  "backend": {
+    "passed": 1290,
+    "new_feature_cases": 21,
+    "seconds": 92.33,
+    "failed": 0,
+    "warnings": 1
+  },
+  "frontend": {
+    "component_tests_passed": 14,
+    "typescript": "PASS",
+    "production_build": "PASS"
+  },
+  "deletion": {
+    "kinds": [
+      "warehouses",
+      "stores",
+      "vehicles",
+      "quotes"
+    ],
+    "single": "PASS",
+    "bulk": "PASS",
+    "atomic": "PASS",
+    "reference_protection": "PASS",
+    "revision_and_csrf": "PASS",
+    "immutable_snapshot_preserved": "PASS",
+    "max_selected": 1000
+  },
+  "import_locations": {
+    "warehouses": "PASS",
+    "stores": "PASS",
+    "unique_precise_match_only": true,
+    "ambiguous_and_unavailable_marked_manual": true,
+    "explicit_coordinates_preserved": true,
+    "manual_correction_not_overwritten": true,
+    "late_deleted_results_discarded": true,
+    "unrelated_import_not_invalidated": true,
+    "existing_record_import_preserves_enriched_position": true,
+    "durable_restart": "PASS"
+  },
+  "browser": {
+    "isolated_synthetic_database": true,
+    "native_modal_blocker": false,
+    "single_and_bulk_delete_confirmation_and_cancel": "PASS",
+    "actual_delete": "covered by API and component tests; no real business record deleted",
+    "real_file_chooser_upload_and_commit": "PASS",
+    "background_linked_and_manual_status": "PASS",
+    "manual_status_filter": "PASS",
+    "linked_point_visible_on_map": "PASS",
+    "map_responses": "FIXTURE"
+  },
+  "public_geocoder_smoke": {
+    "query": "合肥市人民政府",
+    "provider": "https://photon.komoot.io/api/",
+    "real_truck_calls": 0,
+    "business_addresses_sent": false,
+    "status": "REACHABLE",
+    "candidate_count": 1,
+    "automatic_exact_match_count": 1
+  },
+  "real_truck_calls": 0,
+  "preservation": {
+    "business_and_trial_backed_up": true,
+    "original_account_rows_unchanged": true,
+    "all_existing_table_counts_unchanged": true
+  },
+  "cleanup": {
+    "temporary_qa_database_removed": true,
+    "temporary_qa_service_stopped": true
+  },
+  "services": {
+    "status": "PASS",
+    "servers": [
+      {
+        "port": 8000,
+        "healthy": true,
+        "login_served": true
+      },
+      {
+        "port": 8001,
+        "healthy": true,
+        "login_served": true
+      }
+    ]
+  },
+  "evidence_sha256": {
+    "delete-confirmation.png": "8a671b39dbc73105722947072d26f86065c760f67ea9ba1b5424196417ce4bfd",
+    "final-server-check.json": "c297c893ac19b95bc1258b7d98fc21671a5d009d40eddea8bfd309e743c2bfa9",
+    "frontend-build.txt": "3e3d36c4a77afec4b23ccecf3ccbf7d9d72cbf23a6610861baa5f4e3daddca19",
+    "frontend-tests.txt": "bbd0e884e46f0c1890afcdeaf660e6f1cf4a90346df41aafecd30cb1d0bc23da",
+    "geocoder-check.json": "8516308c73cc9be76bc01120f7eb53210adaa13efa58b71aa8a49cf534d7d336",
+    "guide.md": "8664a14bd53f5f149f30ac57c995ab5fe0308372e8988d94872947df32ed5bf6",
+    "import-location-status.png": "7acf5a5511a2c36257e70037e0b7568fc5f04dad78af029fd724e2c20e344da4",
+    "migration-preservation.json": "4d06de49c730fe67b78d933a7cf111b6f906f5a9c8a6fce4016ce63e4447ae1a",
+    "pytest-output.txt": "bfb4d9a1ade0fa6f2359aac777aa6d35e8889d44e980f113d242275ec714302b",
+    "queue-restart.json": "de9490e8d4614e1760d7d54725111ca2c41b5575080e171949231b6c2552986f"
+  }
+}

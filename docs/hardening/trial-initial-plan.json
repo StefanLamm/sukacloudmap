@@ -1,0 +1,11 @@
+{
+  "plan_id": "b9d3429e-cd94-4418-8df7-dce283343e43",
+  "hash": "10e7f02afbfb4ec91e0aeb0224785a55701cb8ccbc5e18c2a61c7850def3d01a",
+  "version": 1,
+  "date": "2026-08-06",
+  "tasks": 150,
+  "pieces": 3969,
+  "used_vehicles": 11,
+  "road_source": "FIXTURE",
+  "confirmable": false
+}

@@ -1,0 +1,138 @@
+{
+  "date": "2026-11-12",
+  "status": "PASS",
+  "backend": {
+    "passed": 1414,
+    "warnings": 1
+  },
+  "frontend": {
+    "passed": 45,
+    "files": 7
+  },
+  "typecheck_and_production_build": "PASS",
+  "pagination": {
+    "page_sizes": [
+      20,
+      50,
+      100
+    ],
+    "visible_page_numbers": true,
+    "cross_page_selection_preserved": true,
+    "browser_365_stores_100_per_page_page_2_of_4": "PASS"
+  },
+  "manual_accounting": {
+    "button": "开始核算",
+    "preserves_user_vehicle_mode_order": true,
+    "new_version_and_fee_comparison": true,
+    "browser_fixed_road_tasks": 150,
+    "browser_fixed_road_pieces": 3969,
+    "previous_fee": "840.01",
+    "recalculated_fee": "843.63",
+    "delta": "3.62",
+    "external_calls_for_browser_test": 0
+  },
+  "amap": {
+    "job_count_limit": null,
+    "qps_per_service": 3,
+    "cache_and_cancellation_preserved": true,
+    "bounded_retries_preserved": true,
+    "over_10_calls_test": "MockTransport only",
+    "new_real_road_calls_in_this_update": 0
+  },
+  "closing_deadline": {
+    "default": "BUSINESS_CLOSE",
+    "overnight_year_and_leap_day_tests": "PASS",
+    "explicit_daily_and_legacy_limits_preserved": true,
+    "clearing_restores_closing_default": true,
+    "frozen_history_immutable": true,
+    "business_default_store_count": 377
+  },
+  "servers": {
+    "8000": {
+      "health": "PASS",
+      "current_assets": [
+        "/assets/index-DVSrxs9f.js"
+      ]
+    },
+    "8001": {
+      "health": "PASS",
+      "current_assets": [
+        "/assets/index-DVSrxs9f.js"
+      ]
+    },
+    "8765": {
+      "health": "PASS",
+      "current_assets": [
+        "/assets/index-DVSrxs9f.js"
+      ]
+    },
+    "8766": {
+      "health": "PASS",
+      "current_assets": [
+        "/assets/index-DVSrxs9f.js"
+      ]
+    }
+  },
+  "external_https": {
+    "url": "https://singles-encourages-intelligence-aggregate.trycloudflare.com",
+    "login_page": "PASS",
+    "new_assets": "PASS",
+    "unauthenticated_routes": {
+      "/api/auth/me": 401,
+      "/api/maps/config": 401,
+      "/api/planning/capabilities": 401
+    },
+    "host_origin_and_secure_cookie_tests": "PASS",
+    "same_existing_accounts_and_business_database": true,
+    "temporary": true,
+    "start_launcher": "启动临时外网测试.command",
+    "stop_launcher": "停止临时外网测试.command",
+    "lifecycle_scripts_compile": "PASS"
+  },
+  "stored_business_and_history_preservation": {
+    "8000": {
+      "stores": true,
+      "warehouses": true,
+      "vehicles": true,
+      "quotes": true,
+      "quote_versions": true,
+      "store_days": true,
+      "input_snapshots": true,
+      "plan_versions": true
+    },
+    "8001": {
+      "stores": true,
+      "warehouses": true,
+      "vehicles": true,
+      "quotes": true,
+      "quote_versions": true,
+      "store_days": true,
+      "input_snapshots": true,
+      "plan_versions": true
+    },
+    "8765": {
+      "stores": true,
+      "warehouses": true,
+      "vehicles": true,
+      "quotes": true,
+      "quote_versions": true,
+      "store_days": true,
+      "input_snapshots": true,
+      "plan_versions": true
+    },
+    "8766": {
+      "stores": true,
+      "warehouses": true,
+      "vehicles": true,
+      "quotes": true,
+      "quote_versions": true,
+      "store_days": true,
+      "input_snapshots": true,
+      "plan_versions": true
+    }
+  },
+  "credential_scan": {
+    "files": 177,
+    "literal_key_findings": 0
+  }
+}

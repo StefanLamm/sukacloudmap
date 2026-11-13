@@ -1,0 +1,197 @@
+{
+  "version": "0.3.1",
+  "verification_date": "2026-11-11",
+  "status": "IMPLEMENTED_AND_VERIFIED_ON_SQLITE",
+  "requests": {
+    "1_location_management": {
+      "status": "PASS",
+      "implemented": [
+        "仓库与门店地图点击选点",
+        "地图平移和标记拖拽",
+        "主动文字搜索与选择候选地点",
+        "保存地址、坐标、坐标系和来源",
+        "已关联位置在地图显示，点击标记查看资料"
+      ],
+      "map": "Leaflet 1.9.4 + OpenStreetMap",
+      "search": "Photon",
+      "real_external_test": "搜索无锡站，返回无锡站南站房；实际底图图片加载成功、浏览器无地图错误日志"
+    },
+    "2_business_section": {
+      "status": "PASS_EXISTING_OPERATIONS_MOVED",
+      "route": "/planning",
+      "implemented": [
+        "独立物流线路规划侧栏及页面",
+        "配送日和仓库选择",
+        "仓库当日发车时间",
+        "车辆当日归仓和可用性",
+        "当日有效报价及缺失配置",
+        "门店多选报价兼容判断",
+        "相关仓库门店位置地图"
+      ],
+      "scope": "迁移已有业务操作；未新增后续S4至S7的完整线路求解业务"
+    },
+    "3_master_management_only": {
+      "status": "PASS",
+      "api": "/api/master-data/management",
+      "implemented": [
+        "四类管理页显示默认资料，不按配送日切换",
+        "移除业务日期、当日操作和门店兼容判断入口",
+        "四类新增/编辑表单日期输入数量均为0",
+        "新模板不含报价生效日期或最晚到店日期时间",
+        "营业跨日仍作为固定经营资料维护",
+        "当日安排不修改管理默认值、不使主资料导入预览失效",
+        "保留旧数据、旧文件可选日期列及只读报价版本"
+      ]
+    },
+    "4_theme": {
+      "status": "PASS_BROWSER_REVIEW",
+      "primary_surface": "浅爱马仕橙",
+      "main_text": "深橙棕色",
+      "colors": {
+        "background": "#fff8f1",
+        "primary_button": "#f3bf94",
+        "primary_text": "#743b1d",
+        "marker": "#d76721"
+      },
+      "updated": [
+        "登录页",
+        "侧栏导航",
+        "表格和卡片",
+        "按钮和状态",
+        "弹窗",
+        "地图标记",
+        "favicon和浏览器主题色"
+      ]
+    }
+  },
+  "automated_tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 117,
+    "failed": 0,
+    "duration_seconds": 31.88,
+    "stage2_and_stage3_regression": 105,
+    "revision_cases": 12,
+    "source": "tests/test_ui_revision.py",
+    "warning": "Starlette提示httpx测试客户端未来弃用；当前全部通过。",
+    "coverage": [
+      "默认资料与当日数据独立",
+      "当日安排不使主资料预览失效",
+      "新模板移除业务日期",
+      "主资料更新保留既有业务期限",
+      "规划页面登录与普通账号权限",
+      "地图配置不暴露密钥",
+      "CSP仅增加瓦片图片来源",
+      "搜索识别头、缓存、限频、异常和空结果",
+      "坐标边界与关联保存回读",
+      "HTTPS服务地址校验"
+    ]
+  },
+  "frontend": {
+    "command": "./scripts/build-frontend.sh",
+    "typescript": "PASS",
+    "production_build": "PASS",
+    "leaflet": "1.9.4",
+    "coordtransform": "2.1.2"
+  },
+  "dependencies": {
+    "pip_check": "PASS",
+    "backend_httpx": "runtime dependency",
+    "frontend_lock": "frontend/pnpm-lock.yaml",
+    "backend_lock": "requirements.lock"
+  },
+  "browser_qa": {
+    "status": "PASS",
+    "environment": "临时专用SQLite + 本地Uvicorn + in-app browser",
+    "checks": [
+      "仓库/门店/报价表单日期输入0，车辆页面日期输入0",
+      "仓库文字搜索返回真实无锡站候选",
+      "选中候选自动填写地址、坐标和来源",
+      "拖拽仓库标记更新坐标与来源并保存",
+      "门店点击选点保存且地图显示",
+      "修改报价不选择日期即可保存V2",
+      "物流业务选择2026-11-12，设置09:30发车",
+      "车辆当天改W02且不可用",
+      "车辆管理仍显示默认W01及可用",
+      "2026-11-13仍沿用默认车辆安排",
+      "在业务页对跨城同价门店进行兼容判断",
+      "橙色主题与地图完整布局检查",
+      "退出登录"
+    ],
+    "persisted_test_data_evidence": {
+      "warehouse_search_and_drag_saved": [
+        "120.30612946",
+        "31.58694398",
+        "WGS84",
+        "OpenStreetMap拖拽校正"
+      ],
+      "store_map_click_saved": [
+        "120.62846661",
+        "31.31808003",
+        "WGS84",
+        "OpenStreetMap地图选点"
+      ],
+      "vehicle_default": 1,
+      "vehicle_override": [
+        "2026-11-12",
+        0
+      ],
+      "warehouse_override": [
+        "2026-11-12",
+        "09:30"
+      ]
+    },
+    "screenshots": {
+      "revision-location-picker.png": "7c28afaba65a5c8104f693673c0656c1bc057c5ff45f0d5eb85bc5254ebaffa7",
+      "revision-planning-compatibility.png": "d7500266937249b47f72ff13c47dc673e3fff88658646fb428f61c27a4a74031",
+      "revision-planning.png": "d1aedf3f3c172f30069979e50db59e959fc4665bee925b2216361f628d0bb5ea",
+      "revision-warehouse-map.png": "295d2d0fd2ffb05f0f0b61985d1009d9016cd1db2d36a7c76b189497e826097b"
+    },
+    "temporary_server_stopped": true,
+    "temporary_database_removed": true
+  },
+  "real_http_restart": {
+    "status": "PASS",
+    "result_file": "docs/ui-revision-http-validation.json",
+    "checks": [
+      "bootstrap",
+      "login",
+      "two_business_accounts_share_records",
+      "two_business_accounts_share_master_data",
+      "future_quote_keeps_current_price",
+      "zero_price_preserved",
+      "vehicle_day_override_preserved",
+      "new_process_after_restart",
+      "sessions_survive_restart",
+      "accounts_and_records_survive_restart",
+      "master_catalog_identical_after_restart",
+      "immutable_quote_versions_survive_restart",
+      "business_user_admin_api_denied",
+      "built_frontend_http_200"
+    ],
+    "temporary_database_only": true
+  },
+  "workspace_hygiene": {
+    "schema": "0002_master_data",
+    "migration_required": false,
+    "business_database_counts": {
+      "accounts": 1,
+      "warehouses": 0,
+      "stores": 0,
+      "vehicles": 0,
+      "quotes": 0,
+      "master_imports": 0
+    },
+    "qa_accounts_in_business_database": 0,
+    "test_data_seeded_to_business_database": false,
+    "historical_stage_reports_preserved": true
+  },
+  "limits": {
+    "daily_demand_import": "S4_NOT_IMPLEMENTED",
+    "real_truck_roads_and_executable_route_solver": "S5_S6_NOT_IMPLEMENTED",
+    "coordinate_conversion": "GCJ02/BD09到WGS84的近似展示转换，不作为真实货车道路证明",
+    "postgresql": "NOT_RUN_TARGET_SERVER_NOT_AVAILABLE",
+    "public_maps": "需要服务可访问的网络；可通过环境配置替换兼容服务",
+    "production_deployment": "NOT_PERFORMED"
+  },
+  "guide": "docs/ui-revision-guide.md"
+}

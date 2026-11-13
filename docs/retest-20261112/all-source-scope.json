@@ -1,0 +1,9 @@
+{
+  "user_rule": "All 264 originally unassigned rows use HF for testing only",
+  "added_test_stores": 43,
+  "total_stores": 408,
+  "days": 150,
+  "source_rows": 12185,
+  "pieces": 241806,
+  "business_warehouse_assignments_modified": false
+}

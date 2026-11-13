@@ -1,0 +1,19 @@
+{
+  "daily_tasks": 2,
+  "total_pieces": 9,
+  "snapshots": 2,
+  "old_deadline": "2026-11-11T09:00:00+08:00",
+  "new_deadline": "2026-11-11T11:00:00+08:00",
+  "hashes": [
+    "03c53012d7a46aef5c5be1b6c3d78649ddc36c00cfd9a5c9fc45fc35c2f153a1",
+    "19f21e02939980653ff40a073efabf13beb8bd819a0900c330fbfdd8b9adcaeb"
+  ],
+  "screenshots": {
+    "stage4-current-snapshot.png": "bd50f1811a9b5947ab2bfccdce0ab83b495937122d1de8f8d6f070deae747e4e",
+    "stage4-import-errors.png": "46d0f31d14439e7ee363f122af8d5ea7b18ad14cf768937af832920ed1e97fc7",
+    "stage4-old-snapshot.png": "e8c10c3cb5f1f75e0e07e8f4027c707e763f6a537ffead1b3ca01a988403463a",
+    "stage4-preview.png": "f041d95bc096a938f277e71a4dd94232d2c58c71d89464405301c4aecb75ce05",
+    "stage4-sources.png": "4f434b5e70b07181790df7438d64bf1522d1ba5c4395cff8047d6c2d711475da",
+    "stage4-workspace.png": "e5441ff61de79d12cf6fb599cc67907f4fcdc899e0eeceac1034437761915111"
+  }
+}

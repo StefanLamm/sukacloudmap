@@ -1,0 +1,14 @@
+{
+  "result": "PASS",
+  "command": "bash scripts/start.sh",
+  "checks": [
+    "automatic_migration",
+    "first_admin_initialization",
+    "login_http_200",
+    "frontend_http_200",
+    "favicon_http_200",
+    "no_password_in_output"
+  ],
+  "database": "temporary SQLite",
+  "production_data_modified": false
+}

@@ -1,0 +1,14 @@
+{
+  "authorized_limit": 10,
+  "calls": 1,
+  "attempts": [
+    {
+      "call": 1,
+      "endpoint": "tsapi.amap.com/v1/logistics/transport/route/direction/truck",
+      "http": 200,
+      "provider_code": "10012"
+    }
+  ],
+  "synthetic_vehicle_only": true,
+  "status": "ROAD_API_ERROR"
+}

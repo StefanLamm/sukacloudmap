@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "servers": [
+    {
+      "port": 8000,
+      "healthy": true,
+      "login_served": true
+    },
+    {
+      "port": 8001,
+      "healthy": true,
+      "login_served": true
+    }
+  ]
+}

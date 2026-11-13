@@ -1,0 +1,301 @@
+{
+  "baseline_date": "2026-11-11",
+  "test_execution_status": "NOT_RUN",
+  "product_exists": false,
+  "cases": [
+    {
+      "id": "AC01",
+      "input_and_action": "未登录直接访问业务页面及API；普通人员访问账号管理。",
+      "expected": "拒绝未授权访问；账号管理仅管理员可用。",
+      "rules": [
+        "R01"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "分别以匿名、普通账号调用主数据与账号接口，验证401/403；直接输入业务页地址同测。"
+    },
+    {
+      "id": "AC02",
+      "input_and_action": "管理员停用账号、重置密码；两个业务账号查询同一资料。",
+      "expected": "账号状态与会话处理生效；共享同一业务数据。",
+      "rules": [
+        "R01"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "管理员创建U1/U2，U1录入仓库后U2可见；停用U1与重置U2后分别用旧会话和旧密码请求；重启服务复核资料。"
+    },
+    {
+      "id": "AC03",
+      "input_and_action": "导入未知店、重名、负数或小数件数；同文件重复门店。",
+      "expected": "错误定位且整批不提交；合法重复行预览汇总；零件数不建任务。",
+      "rules": [
+        "R03",
+        "R22"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "预置同名双门店；分别上传未知、同名、-1、1.5及缺列文件，确认数据库不变；再上传同店2和3及零行，预览为1票5件并保留来源行。"
+    },
+    {
+      "id": "AC04",
+      "input_and_action": "同一配送日连续上传同一需求，再上传修改版。",
+      "expected": "按预览替换，不重复累计；总店数和件数准确。",
+      "rules": [
+        "R23"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "先导入A=2，再上传A=2，提交后仍2件；第三次A=4/B=1，展示1店2件变2店5件后替换。"
+    },
+    {
+      "id": "AC05",
+      "input_and_action": "单票大于全部可用车容量；有共配价或两种方式均不可用。",
+      "expected": "整票回退共配或列异常，不能拆分，也不能凭空增车。",
+      "rules": [
+        "R04",
+        "R05",
+        "R14",
+        "R19"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "一票11件，所有可用车最大10件；有共配2元则整票22元，缺共配且车不可承载则整票未分配11件。"
+    },
+    {
+      "id": "AC06",
+      "input_and_action": "同车被不同报价组申请，或车辆归属另一仓。",
+      "expected": "一车最多一线；各组共享真实车池；不得跨归仓误用。",
+      "rules": [
+        "R05",
+        "R06"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "用40元样例共享两车；另造异仓车辆及一天重复线路，独立检查器须报错，不容许隐形第二趟。"
+    },
+    {
+      "id": "AC07",
+      "input_and_action": "跨城市相同参数、相同参数不同方案名、同城不同参数。",
+      "expected": "前两者允许合线，后者不允许；不按行政城市硬分组。",
+      "rules": [
+        "R09",
+        "R10"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "KM=2与KM=2.00不同名兼容，跨城市允许；同城KM=2与KM=2.01不兼容；不同仓同价不合线。"
+    },
+    {
+      "id": "AC08",
+      "input_and_action": "12500米、2.5元每公里；3件、2.25元共配。",
+      "expected": "专车31.25元，共配6.75元；无其他自动附加费用。",
+      "rules": [
+        "R07",
+        "R11",
+        "R13",
+        "R15"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "固定道路12500米，公里价2.5，31.25元；3件共配2.25得6.75元；同时给地图收费字段，业务费用不另加。"
+    },
+    {
+      "id": "AC09",
+      "input_and_action": "起送100元含3店，串店20元，分别配送2店和5店。",
+      "expected": "分别100元和140元；不产生负串店费或首店多收费。",
+      "rules": [
+        "R07",
+        "R12",
+        "R15"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "起送100含3店串店20；2店100、5店140；另测0包含数与空线路，空线0元且不占车。"
+    },
+    {
+      "id": "AC10",
+      "input_and_action": "报价为空与明确填写0，各运输方式分别缺价。",
+      "expected": "空值不当免费，零价有效；只排除缺价方式。",
+      "rules": [
+        "R14"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "分别测试专车NULL/0×共配NULL/0四种组合；无价为不可用，有明确0为合法候选，不用truthy判价格。"
+    },
+    {
+      "id": "AC11",
+      "input_and_action": "前店卸货20分钟；车辆提前到下店等待开门。",
+      "expected": "到店、等待、卸货和离店逐站递推，后店时间不漏算。",
+      "rules": [
+        "R02",
+        "R16",
+        "R17"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "08:00发车，首段15分钟；A 09:00开门卸20分钟，离店09:20；后段10分钟，B到店09:30，最晚09:29则不通过。"
+    },
+    {
+      "id": "AC12",
+      "input_and_action": "最晚到店09时；分别08时59分、09时、09时01分到店。",
+      "expected": "前两者满足到店期限，后者专车候选无效；共配不套用此时序校验。",
+      "rules": [
+        "R13",
+        "R18"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "同一固定段分别产出08:59、09:00、09:01到店，与最晚09:00比较；再转共配验证不执行专车时间校验。"
+    },
+    {
+      "id": "AC13",
+      "input_and_action": "22时闭店，21时55分到店，卸货20分钟。",
+      "expected": "允许22时15分卸完离店；后续门店据此计算。",
+      "rules": [
+        "R16",
+        "R18"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "营业08:00至22:00，21:55到店，卸20分钟，22:15离店合法；后段10分钟，下一站22:25到店。"
+    },
+    {
+      "id": "AC14",
+      "input_and_action": "API超时、无权限、额度不足、无法避让货车限制或缺参数。",
+      "expected": "标明原因并回退或待处理，不伪造正式道路结果。",
+      "rules": [
+        "R08",
+        "R14",
+        "R26"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "注入超时、无权限、额度不足、缺车辆参数、道路限行未知/不可避开；核对状态、重试上限及共配/未分配分支。真实API另记录请求摘要和响应码。"
+    },
+    {
+      "id": "AC15",
+      "input_and_action": "不同车牌尺寸参数；超过接口途经点数量的长线路。",
+      "expected": "按实际车辆重验道路；全部门店保留，不截断尾部。",
+      "rules": [
+        "R08",
+        "R11",
+        "R26"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "同票换不同车牌尺寸或出发时刻，确认重查而不误命中；25店逐段收集25个进店路段，保存全部门店和时刻，不拼接为同一时刻查询。"
+    },
+    {
+      "id": "AC16",
+      "input_and_action": "第7章56元样例及40元共享车辆案例。",
+      "expected": "分别得到指定答案；无重复车辆、无报价混线。",
+      "rules": [
+        "R06",
+        "R07",
+        "R09",
+        "R19",
+        "R20",
+        "R21"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "读取固定道路样例.json，分别断言56元及40元，并检查实际线路、车辆、容量和门店覆盖；金额正确但车重复也判失败。"
+    },
+    {
+      "id": "AC17",
+      "input_and_action": "人工换方式、换车、改顺序造成超容量、错仓或超时。",
+      "expected": "重新计费校验，显示冲突，不能确认为可执行方案。",
+      "rules": [
+        "R24"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "人工改超容量、异仓、异价、超时、重复用车和无效道路；每个保留编辑且列冲突、禁确认；合法增费可保存并展示差额。"
+    },
+    {
+      "id": "AC18",
+      "input_and_action": "保存方案后修改门店仓库、报价或每日需求。",
+      "expected": "历史快照保持原值；新输入生成新版本并提示需重算。",
+      "rules": [
+        "R10",
+        "R23",
+        "R25"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "保存V1后更主仓、报价、需求，V1内容摘要不变且标旧输入；双会话同时以同修订保存，后者409并保留用户编辑。"
+    },
+    {
+      "id": "AC19",
+      "input_and_action": "选择一个历史版本导出Excel。",
+      "expected": "专车、共配、异常门店和件数守恒，金额与所选版本一致。",
+      "rules": [
+        "R04",
+        "R15",
+        "R27"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "按某历史版本导出，核对任务、件数、车牌、顺序、时刻和总额；名称以=、+、-、@开头及前导控制字符时按文本写入。"
+    },
+    {
+      "id": "AC20",
+      "input_and_action": "4仓800店24000件50车，固定道路及真实API分别测试。",
+      "expected": "机器检查全部约束、成本和覆盖；记录用时与调用量，满足事先冻结阈值。",
+      "rules": [
+        "R02",
+        "R04",
+        "R06",
+        "R19",
+        "R20",
+        "R21",
+        "R28"
+      ],
+      "status": "NOT_RUN",
+      "actual": null,
+      "environment": null,
+      "evidence": [],
+      "procedure": "使用规模固定数据集.json核验4仓800店24000件50车；固定道路与真实API分开执行。20次热缓存计算nearest-rank P95，3次真实冷缓存不混入热缓存。"
+    }
+  ]
+}

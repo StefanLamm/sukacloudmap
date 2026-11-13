@@ -1,0 +1,71 @@
+{
+  "version": "0.13.0",
+  "backend": {
+    "full_suite_passed": 1546,
+    "additional_unique_tests_passed": 3,
+    "unique_total_passed": 1549,
+    "additional_file_rerun_passed": 10,
+    "note": "Final full suite plus three subsequently added regression cases; all collected tests are covered."
+  },
+  "frontend": {
+    "passed": 82,
+    "typescript": "passed",
+    "production_build": "passed"
+  },
+  "test2": {
+    "snapshot_version": 2,
+    "saved_plan_version": 4,
+    "saved_plan_id": "528dace4-f3ae-4d49-8dbb-d2bf88e55b10",
+    "previous_fee": "31720.97",
+    "current_fee": "30575.37",
+    "saving": "1145.60",
+    "previous_dedicated_vehicles": 4,
+    "current_dedicated_vehicles": 5,
+    "tasks": 225,
+    "pieces": 4378,
+    "common_tasks": 153,
+    "unassigned": 0,
+    "fresh_provider_edges": 76,
+    "global_optimality_proven": false,
+    "scope": "ORDINARY_DRIVING_REFERENCE"
+  },
+  "deployed": true,
+  "original_four_database_rows_preserved": {
+    "main": {
+      "original_protected_rows_unchanged": true,
+      "integrity": "ok",
+      "foreign_key_violations": 0
+    },
+    "trial": {
+      "original_protected_rows_unchanged": true,
+      "integrity": "ok",
+      "foreign_key_violations": 0
+    },
+    "history": {
+      "original_protected_rows_unchanged": true,
+      "integrity": "ok",
+      "foreign_key_violations": 0
+    },
+    "driving": {
+      "original_protected_rows_unchanged": true,
+      "integrity": "ok",
+      "foreign_key_violations": 0
+    }
+  },
+  "release_record": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/test2-improvement-20261112/release-220134/release.json",
+  "external_url": "https://improving-protect-magical-comprehensive.trycloudflare.com",
+  "browser": {
+    "isolated_copy_of_published_database": true,
+    "per_store_quote_saved": true,
+    "common_time_not_required": true,
+    "new_route_map_loaded": true,
+    "selected_new_vehicle": "皖A056Y6",
+    "selected_road_segments": 14,
+    "temporary_review_service_stopped": true
+  },
+  "screenshots": [
+    "per-store-quote.png",
+    "test2-v4-common.png",
+    "test2-v4-map.png"
+  ]
+}

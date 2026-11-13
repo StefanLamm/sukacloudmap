@@ -1,0 +1,33 @@
+{
+  "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+  "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka-pre-hardening-20261111-415100.db",
+  "schema": "0004_route_plans",
+  "sha256": "2f95d37ebaadd71a5a63e1b380da6d1cc32ef12d33f591686f69a1447cb0e13c",
+  "integrity": "ok",
+  "counts_before": {
+    "accounts": 1,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0,
+    "daily_demands": 0,
+    "input_snapshots": 0,
+    "plan_versions": 0
+  },
+  "account_rows_unchanged": true,
+  "counts_after": {
+    "accounts": 1,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0,
+    "daily_demands": 0,
+    "input_snapshots": 0,
+    "plan_versions": 0
+  },
+  "database_integrity": "ok",
+  "source_workbooks_unchanged": true,
+  "test_database_separate": true,
+  "qa_database_removed": true,
+  "qa_server_stopped": true
+}

@@ -1,0 +1,1618 @@
+{
+  "sources": [
+    {
+      "path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流分析表/10月份运费登记表.xlsx",
+      "sha256": "0edf3491f8a6e2903d1989c6eaf5a3b70d6147983b1af0485c7e80e6cc16577e",
+      "dated_rows": 2491,
+      "pieces": 43209,
+      "excluded_formula_template_rows": 6532
+    },
+    {
+      "path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流分析表/2026年1-9月物流分析/运费登记表/6月份运费登记表.xlsx",
+      "sha256": "95ddb361d6c29d06b18a6a447d3502658f7ee1d8014e3ef2977bd25f77000e2d",
+      "dated_rows": 2515,
+      "pieces": 49831,
+      "excluded_formula_template_rows": 0
+    },
+    {
+      "path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流分析表/2026年1-9月物流分析/运费登记表/7月份运费登记表.xlsx",
+      "sha256": "5a0cdbf6666d4e855b25f2e8567203b0a1dd8a937caefdc3bd7c042a62fc0cc0",
+      "dated_rows": 2368,
+      "pieces": 45409,
+      "excluded_formula_template_rows": 0
+    },
+    {
+      "path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流分析表/2026年1-9月物流分析/运费登记表/8月份运费登记表.xlsx",
+      "sha256": "0be1fc1fd01612172372f1d735c715a7ca24cdd050276646426fddfbf05a95a1",
+      "dated_rows": 2240,
+      "pieces": 51411,
+      "excluded_formula_template_rows": 6833
+    },
+    {
+      "path": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流分析表/2026年1-9月物流分析/运费登记表/9月份运费登记表.xlsx",
+      "sha256": "4726baf39f7b5c37534018fc97daf4c4d0e5b196b49ee0fc3562c47cca79fe34",
+      "dated_rows": 2571,
+      "pieces": 51946,
+      "excluded_formula_template_rows": 0
+    }
+  ],
+  "business_rows": 12185,
+  "pieces": 241806,
+  "days": 150,
+  "stores": 408,
+  "province_rows": {
+    "安徽省": 10883,
+    "江苏省": 1038,
+    "山东省": 70,
+    "河南省": 123,
+    "UNKNOWN": 71
+  },
+  "issues": [],
+  "out_of_scope_rows": 264,
+  "daily": [
+    {
+      "date": "2026-06-01",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1579,
+      "warehouse_rows": {
+        "HF": 77,
+        "UNASSIGNED": 3
+      }
+    },
+    {
+      "date": "2026-06-02",
+      "rows": 124,
+      "stores": 124,
+      "pieces": 2787,
+      "warehouse_rows": {
+        "HF": 108,
+        "HA": 9,
+        "UNASSIGNED": 7
+      }
+    },
+    {
+      "date": "2026-06-03",
+      "rows": 79,
+      "stores": 79,
+      "pieces": 1614,
+      "warehouse_rows": {
+        "HF": 65,
+        "HA": 9,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-06-04",
+      "rows": 85,
+      "stores": 85,
+      "pieces": 1783,
+      "warehouse_rows": {
+        "HF": 76,
+        "HA": 9
+      }
+    },
+    {
+      "date": "2026-06-05",
+      "rows": 124,
+      "stores": 124,
+      "pieces": 2428,
+      "warehouse_rows": {
+        "HF": 123,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-06-06",
+      "rows": 66,
+      "stores": 66,
+      "pieces": 1274,
+      "warehouse_rows": {
+        "HF": 60,
+        "UNASSIGNED": 4,
+        "HA": 2
+      }
+    },
+    {
+      "date": "2026-06-07",
+      "rows": 20,
+      "stores": 20,
+      "pieces": 502,
+      "warehouse_rows": {
+        "UNASSIGNED": 10,
+        "HA": 10
+      }
+    },
+    {
+      "date": "2026-06-08",
+      "rows": 70,
+      "stores": 70,
+      "pieces": 1438,
+      "warehouse_rows": {
+        "HF": 70
+      }
+    },
+    {
+      "date": "2026-06-09",
+      "rows": 119,
+      "stores": 119,
+      "pieces": 2262,
+      "warehouse_rows": {
+        "HF": 113,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-06-10",
+      "rows": 91,
+      "stores": 91,
+      "pieces": 1678,
+      "warehouse_rows": {
+        "HF": 82,
+        "HA": 3,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-06-11",
+      "rows": 84,
+      "stores": 84,
+      "pieces": 1635,
+      "warehouse_rows": {
+        "HF": 78,
+        "HA": 6
+      }
+    },
+    {
+      "date": "2026-06-12",
+      "rows": 113,
+      "stores": 113,
+      "pieces": 2100,
+      "warehouse_rows": {
+        "HF": 112,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-06-13",
+      "rows": 85,
+      "stores": 85,
+      "pieces": 1800,
+      "warehouse_rows": {
+        "HF": 59,
+        "UNASSIGNED": 13,
+        "HA": 13
+      }
+    },
+    {
+      "date": "2026-06-14",
+      "rows": 9,
+      "stores": 9,
+      "pieces": 241,
+      "warehouse_rows": {
+        "HA": 6,
+        "UNASSIGNED": 3
+      }
+    },
+    {
+      "date": "2026-06-15",
+      "rows": 91,
+      "stores": 91,
+      "pieces": 1615,
+      "warehouse_rows": {
+        "HF": 91
+      }
+    },
+    {
+      "date": "2026-06-16",
+      "rows": 131,
+      "stores": 131,
+      "pieces": 2859,
+      "warehouse_rows": {
+        "HF": 119,
+        "HA": 6,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-06-17",
+      "rows": 75,
+      "stores": 75,
+      "pieces": 1449,
+      "warehouse_rows": {
+        "HF": 68,
+        "HA": 6,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-06-18",
+      "rows": 89,
+      "stores": 89,
+      "pieces": 1889,
+      "warehouse_rows": {
+        "HF": 76,
+        "HA": 13
+      }
+    },
+    {
+      "date": "2026-06-19",
+      "rows": 112,
+      "stores": 112,
+      "pieces": 2130,
+      "warehouse_rows": {
+        "HF": 111,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-06-20",
+      "rows": 81,
+      "stores": 81,
+      "pieces": 1467,
+      "warehouse_rows": {
+        "HF": 72,
+        "HA": 9
+      }
+    },
+    {
+      "date": "2026-06-21",
+      "rows": 13,
+      "stores": 12,
+      "pieces": 485,
+      "warehouse_rows": {
+        "HA": 13
+      }
+    },
+    {
+      "date": "2026-06-22",
+      "rows": 72,
+      "stores": 72,
+      "pieces": 1301,
+      "warehouse_rows": {
+        "HF": 71,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-06-23",
+      "rows": 127,
+      "stores": 127,
+      "pieces": 2491,
+      "warehouse_rows": {
+        "HF": 108,
+        "HA": 13,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-06-24",
+      "rows": 74,
+      "stores": 74,
+      "pieces": 1332,
+      "warehouse_rows": {
+        "HF": 65,
+        "HA": 9
+      }
+    },
+    {
+      "date": "2026-06-25",
+      "rows": 90,
+      "stores": 90,
+      "pieces": 1544,
+      "warehouse_rows": {
+        "HF": 89,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-06-26",
+      "rows": 113,
+      "stores": 113,
+      "pieces": 2108,
+      "warehouse_rows": {
+        "HF": 112,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-06-27",
+      "rows": 73,
+      "stores": 73,
+      "pieces": 1473,
+      "warehouse_rows": {
+        "HF": 60,
+        "HA": 12,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-06-28",
+      "rows": 22,
+      "stores": 22,
+      "pieces": 547,
+      "warehouse_rows": {
+        "HA": 22
+      }
+    },
+    {
+      "date": "2026-06-29",
+      "rows": 71,
+      "stores": 71,
+      "pieces": 1361,
+      "warehouse_rows": {
+        "HF": 70,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-06-30",
+      "rows": 132,
+      "stores": 132,
+      "pieces": 2659,
+      "warehouse_rows": {
+        "HF": 126,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-07-01",
+      "rows": 76,
+      "stores": 76,
+      "pieces": 1488,
+      "warehouse_rows": {
+        "HF": 65,
+        "HA": 9,
+        "UNASSIGNED": 2
+      }
+    },
+    {
+      "date": "2026-07-02",
+      "rows": 76,
+      "stores": 76,
+      "pieces": 1791,
+      "warehouse_rows": {
+        "HF": 69,
+        "HA": 6,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-03",
+      "rows": 113,
+      "stores": 113,
+      "pieces": 2605,
+      "warehouse_rows": {
+        "HF": 108,
+        "HA": 5
+      }
+    },
+    {
+      "date": "2026-07-04",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1474,
+      "warehouse_rows": {
+        "HF": 61,
+        "HA": 19
+      }
+    },
+    {
+      "date": "2026-07-05",
+      "rows": 25,
+      "stores": 25,
+      "pieces": 448,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 3,
+        "HF": 15
+      }
+    },
+    {
+      "date": "2026-07-06",
+      "rows": 71,
+      "stores": 71,
+      "pieces": 1479,
+      "warehouse_rows": {
+        "HF": 64,
+        "UNASSIGNED": 1,
+        "HA": 6
+      }
+    },
+    {
+      "date": "2026-07-07",
+      "rows": 112,
+      "stores": 112,
+      "pieces": 2131,
+      "warehouse_rows": {
+        "HF": 106,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-07-08",
+      "rows": 74,
+      "stores": 74,
+      "pieces": 1349,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 65
+      }
+    },
+    {
+      "date": "2026-07-09",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1595,
+      "warehouse_rows": {
+        "HA": 12,
+        "HF": 67,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-10",
+      "rows": 120,
+      "stores": 119,
+      "pieces": 2177,
+      "warehouse_rows": {
+        "HF": 119,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-07-11",
+      "rows": 67,
+      "stores": 67,
+      "pieces": 1368,
+      "warehouse_rows": {
+        "HA": 8,
+        "UNASSIGNED": 2,
+        "HF": 57
+      }
+    },
+    {
+      "date": "2026-07-13",
+      "rows": 79,
+      "stores": 79,
+      "pieces": 1534,
+      "warehouse_rows": {
+        "HF": 64,
+        "HA": 14,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-14",
+      "rows": 107,
+      "stores": 107,
+      "pieces": 1976,
+      "warehouse_rows": {
+        "HA": 12,
+        "HF": 89,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-07-15",
+      "rows": 85,
+      "stores": 85,
+      "pieces": 1295,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 4,
+        "HF": 74
+      }
+    },
+    {
+      "date": "2026-07-16",
+      "rows": 71,
+      "stores": 71,
+      "pieces": 1334,
+      "warehouse_rows": {
+        "HF": 64,
+        "UNASSIGNED": 1,
+        "HA": 6
+      }
+    },
+    {
+      "date": "2026-07-17",
+      "rows": 102,
+      "stores": 102,
+      "pieces": 1997,
+      "warehouse_rows": {
+        "HF": 101,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-07-18",
+      "rows": 63,
+      "stores": 63,
+      "pieces": 1001,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 54
+      }
+    },
+    {
+      "date": "2026-07-19",
+      "rows": 12,
+      "stores": 12,
+      "pieces": 284,
+      "warehouse_rows": {
+        "HA": 12
+      }
+    },
+    {
+      "date": "2026-07-20",
+      "rows": 88,
+      "stores": 88,
+      "pieces": 1571,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 2,
+        "HF": 79
+      }
+    },
+    {
+      "date": "2026-07-21",
+      "rows": 102,
+      "stores": 102,
+      "pieces": 1829,
+      "warehouse_rows": {
+        "HF": 96,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-07-22",
+      "rows": 67,
+      "stores": 67,
+      "pieces": 1145,
+      "warehouse_rows": {
+        "HA": 5,
+        "HF": 62
+      }
+    },
+    {
+      "date": "2026-07-23",
+      "rows": 74,
+      "stores": 74,
+      "pieces": 1386,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 64,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-24",
+      "rows": 101,
+      "stores": 101,
+      "pieces": 1955,
+      "warehouse_rows": {
+        "HF": 100,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-07-25",
+      "rows": 78,
+      "stores": 78,
+      "pieces": 1289,
+      "warehouse_rows": {
+        "HA": 11,
+        "HF": 67
+      }
+    },
+    {
+      "date": "2026-07-26",
+      "rows": 12,
+      "stores": 12,
+      "pieces": 451,
+      "warehouse_rows": {
+        "HA": 9,
+        "UNASSIGNED": 3
+      }
+    },
+    {
+      "date": "2026-07-27",
+      "rows": 74,
+      "stores": 74,
+      "pieces": 1301,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 67,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-28",
+      "rows": 107,
+      "stores": 107,
+      "pieces": 2012,
+      "warehouse_rows": {
+        "HF": 102,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-07-29",
+      "rows": 67,
+      "stores": 67,
+      "pieces": 1116,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 58
+      }
+    },
+    {
+      "date": "2026-07-30",
+      "rows": 91,
+      "stores": 91,
+      "pieces": 1696,
+      "warehouse_rows": {
+        "HA": 11,
+        "HF": 79,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-07-31",
+      "rows": 94,
+      "stores": 94,
+      "pieces": 2332,
+      "warehouse_rows": {
+        "HF": 93,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-08-01",
+      "rows": 67,
+      "stores": 67,
+      "pieces": 1514,
+      "warehouse_rows": {
+        "HA": 8,
+        "UNASSIGNED": 1,
+        "HF": 58
+      }
+    },
+    {
+      "date": "2026-08-02",
+      "rows": 7,
+      "stores": 7,
+      "pieces": 250,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 1
+      }
+    },
+    {
+      "date": "2026-08-03",
+      "rows": 77,
+      "stores": 77,
+      "pieces": 2098,
+      "warehouse_rows": {
+        "HF": 69,
+        "UNASSIGNED": 1,
+        "HA": 7
+      }
+    },
+    {
+      "date": "2026-08-04",
+      "rows": 124,
+      "stores": 124,
+      "pieces": 4329,
+      "warehouse_rows": {
+        "HA": 11,
+        "HF": 107,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-08-05",
+      "rows": 89,
+      "stores": 89,
+      "pieces": 3033,
+      "warehouse_rows": {
+        "HA": 9,
+        "UNASSIGNED": 3,
+        "HF": 77
+      }
+    },
+    {
+      "date": "2026-08-06",
+      "rows": 150,
+      "stores": 150,
+      "pieces": 3969,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 144
+      }
+    },
+    {
+      "date": "2026-08-07",
+      "rows": 25,
+      "stores": 25,
+      "pieces": 733,
+      "warehouse_rows": {
+        "HF": 23,
+        "UNASSIGNED": 1,
+        "HA": 1
+      }
+    },
+    {
+      "date": "2026-08-08",
+      "rows": 61,
+      "stores": 61,
+      "pieces": 1139,
+      "warehouse_rows": {
+        "HF": 52,
+        "HA": 9
+      }
+    },
+    {
+      "date": "2026-08-09",
+      "rows": 10,
+      "stores": 10,
+      "pieces": 249,
+      "warehouse_rows": {
+        "HA": 10
+      }
+    },
+    {
+      "date": "2026-08-10",
+      "rows": 60,
+      "stores": 60,
+      "pieces": 1073,
+      "warehouse_rows": {
+        "HF": 60
+      }
+    },
+    {
+      "date": "2026-08-11",
+      "rows": 103,
+      "stores": 103,
+      "pieces": 2286,
+      "warehouse_rows": {
+        "HF": 87,
+        "UNASSIGNED": 7,
+        "HA": 9
+      }
+    },
+    {
+      "date": "2026-08-12",
+      "rows": 79,
+      "stores": 79,
+      "pieces": 1268,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 73
+      }
+    },
+    {
+      "date": "2026-08-13",
+      "rows": 67,
+      "stores": 67,
+      "pieces": 1187,
+      "warehouse_rows": {
+        "HA": 8,
+        "HF": 58,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-08-14",
+      "rows": 90,
+      "stores": 90,
+      "pieces": 1807,
+      "warehouse_rows": {
+        "HA": 1,
+        "HF": 89
+      }
+    },
+    {
+      "date": "2026-08-15",
+      "rows": 65,
+      "stores": 65,
+      "pieces": 1100,
+      "warehouse_rows": {
+        "HA": 11,
+        "HF": 54
+      }
+    },
+    {
+      "date": "2026-08-16",
+      "rows": 15,
+      "stores": 15,
+      "pieces": 459,
+      "warehouse_rows": {
+        "HA": 14,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-08-17",
+      "rows": 63,
+      "stores": 63,
+      "pieces": 1142,
+      "warehouse_rows": {
+        "HF": 62,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-08-18",
+      "rows": 115,
+      "stores": 115,
+      "pieces": 2472,
+      "warehouse_rows": {
+        "HA": 8,
+        "HF": 101,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-08-19",
+      "rows": 85,
+      "stores": 85,
+      "pieces": 1734,
+      "warehouse_rows": {
+        "HA": 10,
+        "HF": 75
+      }
+    },
+    {
+      "date": "2026-08-20",
+      "rows": 64,
+      "stores": 64,
+      "pieces": 1289,
+      "warehouse_rows": {
+        "HF": 64
+      }
+    },
+    {
+      "date": "2026-08-21",
+      "rows": 104,
+      "stores": 104,
+      "pieces": 2216,
+      "warehouse_rows": {
+        "HF": 101,
+        "HA": 3
+      }
+    },
+    {
+      "date": "2026-08-22",
+      "rows": 69,
+      "stores": 69,
+      "pieces": 1664,
+      "warehouse_rows": {
+        "HA": 14,
+        "UNASSIGNED": 1,
+        "HF": 54
+      }
+    },
+    {
+      "date": "2026-08-23",
+      "rows": 10,
+      "stores": 10,
+      "pieces": 273,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 1
+      }
+    },
+    {
+      "date": "2026-08-24",
+      "rows": 66,
+      "stores": 66,
+      "pieces": 1375,
+      "warehouse_rows": {
+        "HF": 66
+      }
+    },
+    {
+      "date": "2026-08-25",
+      "rows": 126,
+      "stores": 126,
+      "pieces": 2670,
+      "warehouse_rows": {
+        "HA": 13,
+        "HF": 106,
+        "UNASSIGNED": 7
+      }
+    },
+    {
+      "date": "2026-08-26",
+      "rows": 90,
+      "stores": 90,
+      "pieces": 2129,
+      "warehouse_rows": {
+        "HA": 8,
+        "UNASSIGNED": 2,
+        "HF": 80
+      }
+    },
+    {
+      "date": "2026-08-27",
+      "rows": 78,
+      "stores": 78,
+      "pieces": 1954,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 72
+      }
+    },
+    {
+      "date": "2026-08-28",
+      "rows": 111,
+      "stores": 111,
+      "pieces": 2512,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 108,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-08-29",
+      "rows": 72,
+      "stores": 72,
+      "pieces": 1479,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 63
+      }
+    },
+    {
+      "date": "2026-08-30",
+      "rows": 12,
+      "stores": 12,
+      "pieces": 356,
+      "warehouse_rows": {
+        "HA": 12
+      }
+    },
+    {
+      "date": "2026-08-31",
+      "rows": 86,
+      "stores": 86,
+      "pieces": 1652,
+      "warehouse_rows": {
+        "HF": 86
+      }
+    },
+    {
+      "date": "2026-09-01",
+      "rows": 127,
+      "stores": 127,
+      "pieces": 3037,
+      "warehouse_rows": {
+        "HA": 9,
+        "UNASSIGNED": 10,
+        "HF": 108
+      }
+    },
+    {
+      "date": "2026-09-02",
+      "rows": 73,
+      "stores": 73,
+      "pieces": 1524,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 67
+      }
+    },
+    {
+      "date": "2026-09-03",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1599,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 71
+      }
+    },
+    {
+      "date": "2026-09-04",
+      "rows": 114,
+      "stores": 114,
+      "pieces": 2249,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 110,
+        "UNASSIGNED": 2
+      }
+    },
+    {
+      "date": "2026-09-05",
+      "rows": 83,
+      "stores": 83,
+      "pieces": 1422,
+      "warehouse_rows": {
+        "HA": 19,
+        "UNASSIGNED": 4,
+        "HF": 60
+      }
+    },
+    {
+      "date": "2026-09-06",
+      "rows": 22,
+      "stores": 22,
+      "pieces": 409,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 16
+      }
+    },
+    {
+      "date": "2026-09-07",
+      "rows": 75,
+      "stores": 75,
+      "pieces": 1426,
+      "warehouse_rows": {
+        "HF": 75
+      }
+    },
+    {
+      "date": "2026-09-08",
+      "rows": 137,
+      "stores": 137,
+      "pieces": 2835,
+      "warehouse_rows": {
+        "HA": 8,
+        "HF": 122,
+        "UNASSIGNED": 7
+      }
+    },
+    {
+      "date": "2026-09-09",
+      "rows": 82,
+      "stores": 82,
+      "pieces": 1675,
+      "warehouse_rows": {
+        "HA": 13,
+        "HF": 69
+      }
+    },
+    {
+      "date": "2026-09-10",
+      "rows": 82,
+      "stores": 82,
+      "pieces": 1659,
+      "warehouse_rows": {
+        "HF": 71,
+        "HA": 9,
+        "UNASSIGNED": 2
+      }
+    },
+    {
+      "date": "2026-09-11",
+      "rows": 119,
+      "stores": 119,
+      "pieces": 2058,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 116,
+        "UNASSIGNED": 1
+      }
+    },
+    {
+      "date": "2026-09-12",
+      "rows": 81,
+      "stores": 81,
+      "pieces": 1554,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 75
+      }
+    },
+    {
+      "date": "2026-09-13",
+      "rows": 7,
+      "stores": 7,
+      "pieces": 125,
+      "warehouse_rows": {
+        "HA": 7
+      }
+    },
+    {
+      "date": "2026-09-14",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1552,
+      "warehouse_rows": {
+        "HF": 80
+      }
+    },
+    {
+      "date": "2026-09-15",
+      "rows": 136,
+      "stores": 136,
+      "pieces": 2670,
+      "warehouse_rows": {
+        "HA": 13,
+        "HF": 116,
+        "UNASSIGNED": 7
+      }
+    },
+    {
+      "date": "2026-09-16",
+      "rows": 78,
+      "stores": 78,
+      "pieces": 1620,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 5,
+        "HF": 66
+      }
+    },
+    {
+      "date": "2026-09-17",
+      "rows": 82,
+      "stores": 82,
+      "pieces": 1625,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 76
+      }
+    },
+    {
+      "date": "2026-09-18",
+      "rows": 131,
+      "stores": 131,
+      "pieces": 2086,
+      "warehouse_rows": {
+        "HF": 129,
+        "HA": 2
+      }
+    },
+    {
+      "date": "2026-09-19",
+      "rows": 84,
+      "stores": 84,
+      "pieces": 1460,
+      "warehouse_rows": {
+        "HA": 23,
+        "HF": 61
+      }
+    },
+    {
+      "date": "2026-09-20",
+      "rows": 9,
+      "stores": 9,
+      "pieces": 288,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 2
+      }
+    },
+    {
+      "date": "2026-09-21",
+      "rows": 76,
+      "stores": 76,
+      "pieces": 1272,
+      "warehouse_rows": {
+        "HF": 76
+      }
+    },
+    {
+      "date": "2026-09-22",
+      "rows": 132,
+      "stores": 132,
+      "pieces": 2798,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 120,
+        "UNASSIGNED": 6
+      }
+    },
+    {
+      "date": "2026-09-23",
+      "rows": 81,
+      "stores": 81,
+      "pieces": 1728,
+      "warehouse_rows": {
+        "HA": 10,
+        "HF": 71
+      }
+    },
+    {
+      "date": "2026-09-24",
+      "rows": 104,
+      "stores": 104,
+      "pieces": 2211,
+      "warehouse_rows": {
+        "HA": 13,
+        "HF": 91
+      }
+    },
+    {
+      "date": "2026-09-25",
+      "rows": 114,
+      "stores": 114,
+      "pieces": 2336,
+      "warehouse_rows": {
+        "HF": 114
+      }
+    },
+    {
+      "date": "2026-09-26",
+      "rows": 75,
+      "stores": 75,
+      "pieces": 1676,
+      "warehouse_rows": {
+        "HA": 12,
+        "UNASSIGNED": 4,
+        "HF": 59
+      }
+    },
+    {
+      "date": "2026-09-28",
+      "rows": 80,
+      "stores": 80,
+      "pieces": 1926,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 74
+      }
+    },
+    {
+      "date": "2026-09-29",
+      "rows": 129,
+      "stores": 129,
+      "pieces": 2916,
+      "warehouse_rows": {
+        "HA": 10,
+        "HF": 114,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-09-30",
+      "rows": 98,
+      "stores": 98,
+      "pieces": 2210,
+      "warehouse_rows": {
+        "HA": 17,
+        "UNASSIGNED": 2,
+        "HF": 79
+      }
+    },
+    {
+      "date": "2026-10-01",
+      "rows": 54,
+      "stores": 54,
+      "pieces": 953,
+      "warehouse_rows": {
+        "HF": 54
+      }
+    },
+    {
+      "date": "2026-10-02",
+      "rows": 100,
+      "stores": 100,
+      "pieces": 1693,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 98
+      }
+    },
+    {
+      "date": "2026-10-03",
+      "rows": 61,
+      "stores": 61,
+      "pieces": 1065,
+      "warehouse_rows": {
+        "HA": 16,
+        "HF": 45
+      }
+    },
+    {
+      "date": "2026-10-04",
+      "rows": 42,
+      "stores": 42,
+      "pieces": 940,
+      "warehouse_rows": {
+        "HA": 23,
+        "UNASSIGNED": 4,
+        "HF": 15
+      }
+    },
+    {
+      "date": "2026-10-05",
+      "rows": 60,
+      "stores": 60,
+      "pieces": 989,
+      "warehouse_rows": {
+        "HF": 60
+      }
+    },
+    {
+      "date": "2026-10-06",
+      "rows": 110,
+      "stores": 110,
+      "pieces": 2360,
+      "warehouse_rows": {
+        "HF": 105,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-10-07",
+      "rows": 73,
+      "stores": 73,
+      "pieces": 1361,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 67
+      }
+    },
+    {
+      "date": "2026-10-08",
+      "rows": 85,
+      "stores": 85,
+      "pieces": 1577,
+      "warehouse_rows": {
+        "HF": 75,
+        "HA": 10
+      }
+    },
+    {
+      "date": "2026-10-09",
+      "rows": 113,
+      "stores": 113,
+      "pieces": 2097,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 111
+      }
+    },
+    {
+      "date": "2026-10-10",
+      "rows": 101,
+      "stores": 101,
+      "pieces": 1822,
+      "warehouse_rows": {
+        "HA": 22,
+        "UNASSIGNED": 5,
+        "HF": 74
+      }
+    },
+    {
+      "date": "2026-10-12",
+      "rows": 77,
+      "stores": 77,
+      "pieces": 1242,
+      "warehouse_rows": {
+        "HF": 77
+      }
+    },
+    {
+      "date": "2026-10-13",
+      "rows": 121,
+      "stores": 121,
+      "pieces": 2151,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 110,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-10-14",
+      "rows": 72,
+      "stores": 72,
+      "pieces": 1251,
+      "warehouse_rows": {
+        "HA": 9,
+        "HF": 63
+      }
+    },
+    {
+      "date": "2026-10-15",
+      "rows": 92,
+      "stores": 92,
+      "pieces": 1594,
+      "warehouse_rows": {
+        "HA": 13,
+        "HF": 79
+      }
+    },
+    {
+      "date": "2026-10-16",
+      "rows": 123,
+      "stores": 123,
+      "pieces": 1949,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 121
+      }
+    },
+    {
+      "date": "2026-10-17",
+      "rows": 71,
+      "stores": 71,
+      "pieces": 1078,
+      "warehouse_rows": {
+        "HA": 7,
+        "UNASSIGNED": 4,
+        "HF": 60
+      }
+    },
+    {
+      "date": "2026-10-18",
+      "rows": 6,
+      "stores": 6,
+      "pieces": 141,
+      "warehouse_rows": {
+        "HA": 6
+      }
+    },
+    {
+      "date": "2026-10-19",
+      "rows": 77,
+      "stores": 77,
+      "pieces": 1299,
+      "warehouse_rows": {
+        "HF": 77
+      }
+    },
+    {
+      "date": "2026-10-20",
+      "rows": 127,
+      "stores": 127,
+      "pieces": 2551,
+      "warehouse_rows": {
+        "HA": 10,
+        "HF": 112,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-10-21",
+      "rows": 78,
+      "stores": 78,
+      "pieces": 1438,
+      "warehouse_rows": {
+        "HA": 14,
+        "HF": 64
+      }
+    },
+    {
+      "date": "2026-10-22",
+      "rows": 102,
+      "stores": 102,
+      "pieces": 1873,
+      "warehouse_rows": {
+        "HA": 8,
+        "UNASSIGNED": 4,
+        "HF": 90
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "rows": 112,
+      "stores": 112,
+      "pieces": 1563,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 110
+      }
+    },
+    {
+      "date": "2026-10-24",
+      "rows": 70,
+      "stores": 70,
+      "pieces": 1201,
+      "warehouse_rows": {
+        "HA": 7,
+        "HF": 63
+      }
+    },
+    {
+      "date": "2026-10-25",
+      "rows": 8,
+      "stores": 8,
+      "pieces": 146,
+      "warehouse_rows": {
+        "HA": 8
+      }
+    },
+    {
+      "date": "2026-10-26",
+      "rows": 76,
+      "stores": 76,
+      "pieces": 1176,
+      "warehouse_rows": {
+        "HF": 76
+      }
+    },
+    {
+      "date": "2026-10-27",
+      "rows": 129,
+      "stores": 129,
+      "pieces": 2103,
+      "warehouse_rows": {
+        "HA": 14,
+        "HF": 110,
+        "UNASSIGNED": 5
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "rows": 95,
+      "stores": 95,
+      "pieces": 1521,
+      "warehouse_rows": {
+        "HA": 9,
+        "UNASSIGNED": 4,
+        "HF": 82
+      }
+    },
+    {
+      "date": "2026-10-29",
+      "rows": 81,
+      "stores": 81,
+      "pieces": 1348,
+      "warehouse_rows": {
+        "HA": 6,
+        "HF": 75
+      }
+    },
+    {
+      "date": "2026-10-30",
+      "rows": 106,
+      "stores": 106,
+      "pieces": 1672,
+      "warehouse_rows": {
+        "HA": 2,
+        "HF": 104
+      }
+    },
+    {
+      "date": "2026-10-31",
+      "rows": 69,
+      "stores": 69,
+      "pieces": 1055,
+      "warehouse_rows": {
+        "HA": 10,
+        "HF": 59
+      }
+    }
+  ],
+  "user_config": {
+    "warehouses": {
+      "安徽省": {
+        "code": "HF",
+        "name": "合肥仓",
+        "address": "合肥市东流路100号市政务中心"
+      },
+      "江苏省": {
+        "code": "HA",
+        "name": "淮安仓",
+        "address": "淮安市翔宇南道1号"
+      }
+    },
+    "dedicated_per_km": "5.8",
+    "vehicle_max_pieces": 400,
+    "common_price": "NOT_YET_CONFIRMED",
+    "truck_reference_only": {
+      "model": "CL5041XLC6GL 4.2米级冷藏车",
+      "length_m": "5.995",
+      "width_m": "2.35",
+      "height_m": "3.35",
+      "full_gross_t": "4.495",
+      "rated_load_t": "1.09",
+      "axles": 2,
+      "size": 2,
+      "cartype": 0,
+      "plate_color": "BLUE",
+      "verification": "TEST_REFERENCE_ONLY_NOT_ACTUAL_VEHICLE",
+      "source": "https://www.cnclzg.com/prodview183.html",
+      "axles_and_plate_color": "test assumption; verify each actual vehicle"
+    }
+  }
+}

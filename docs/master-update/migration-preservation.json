@@ -1,0 +1,24 @@
+[
+  {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/business-pre-master-update-da979c.db",
+    "schema": "0004_route_plans",
+    "sha256": "bfe40e2a979e857f3d2ccd621ca14c823b4e921aaf9de55a47ae988b7f3fe1f0",
+    "integrity": "ok",
+    "schema_after": "0005_location_tasks",
+    "existing_row_counts_unchanged": true,
+    "account_rows_unchanged": true,
+    "new_queue_empty": true
+  },
+  {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial-pre-master-update-f378ec.db",
+    "schema": "0004_route_plans",
+    "sha256": "620188608aebf36475fd1fb43a7d2c1fdd1f30f38a1102259fd07c107904b3cf",
+    "integrity": "ok",
+    "schema_after": "0005_location_tasks",
+    "existing_row_counts_unchanged": true,
+    "account_rows_unchanged": true,
+    "new_queue_empty": true
+  }
+]

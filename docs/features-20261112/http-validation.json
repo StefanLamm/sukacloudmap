@@ -1,0 +1,96 @@
+{
+  "result": "PASS",
+  "rows": [
+    {
+      "url": "http://127.0.0.1:8000",
+      "health": 200,
+      "login": 200,
+      "assets": {
+        "/assets/index-C7hV50ex.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-k2UEAoR5.css": 200
+      },
+      "protected": {
+        "/api/auth/me": 401,
+        "/api/planning/days/2026-11-12/groups": 401,
+        "/api/master-data/regions": 401,
+        "/api/workspace/records?status=completed": 401,
+        "/_AMapService/v4/maps": 401
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8001",
+      "health": 200,
+      "login": 200,
+      "assets": {
+        "/assets/index-C7hV50ex.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-k2UEAoR5.css": 200
+      },
+      "protected": {
+        "/api/auth/me": 401,
+        "/api/planning/days/2026-11-12/groups": 401,
+        "/api/master-data/regions": 401,
+        "/api/workspace/records?status=completed": 401,
+        "/_AMapService/v4/maps": 401
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8765",
+      "health": 200,
+      "login": 200,
+      "assets": {
+        "/assets/index-C7hV50ex.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-k2UEAoR5.css": 200
+      },
+      "protected": {
+        "/api/auth/me": 401,
+        "/api/planning/days/2026-11-12/groups": 401,
+        "/api/master-data/regions": 401,
+        "/api/workspace/records?status=completed": 401,
+        "/_AMapService/v4/maps": 401
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8766",
+      "health": 200,
+      "login": 200,
+      "assets": {
+        "/assets/index-C7hV50ex.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-k2UEAoR5.css": 200
+      },
+      "protected": {
+        "/api/auth/me": 401,
+        "/api/planning/days/2026-11-12/groups": 401,
+        "/api/master-data/regions": 401,
+        "/api/workspace/records?status=completed": 401,
+        "/_AMapService/v4/maps": 401
+      }
+    },
+    {
+      "url": "https://estates-feeling-lane-incorporate.trycloudflare.com",
+      "health": 200,
+      "login": 200,
+      "assets": {
+        "/assets/index-C7hV50ex.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-k2UEAoR5.css": 200
+      },
+      "protected": {
+        "/api/auth/me": 401,
+        "/api/planning/days/2026-11-12/groups": 401,
+        "/api/master-data/regions": 401,
+        "/api/workspace/records?status=completed": 401,
+        "/_AMapService/v4/maps": 401
+      }
+    }
+  ],
+  "untrusted_origin": 403
+}

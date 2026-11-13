@@ -1,0 +1,44 @@
+{
+  "failed_retried": 304,
+  "newly_linked": 115,
+  "still_manual": 189,
+  "previous_linked": 73,
+  "linked_now": 188,
+  "warehouses": {
+    "already_linked": 2,
+    "failed_to_retry": 0
+  },
+  "reasons": {
+    "匹配到多个位置，需手动关联": 10,
+    "未找到精确地址，需手动关联": 178,
+    "高德未能检索该地点，地址解析候选已保留，请核对城市和地址或在地图上选点。 需手动关联": 1
+  },
+  "protected": {
+    "accounts": true,
+    "warehouses": true,
+    "vehicles": true,
+    "quotes": true,
+    "quote_versions": true,
+    "daily_demands": true,
+    "demand_days": true,
+    "demand_imports": true,
+    "input_snapshots": true,
+    "plan_versions": true,
+    "planning_jobs": true,
+    "shared_records": true,
+    "master_imports": true,
+    "store_nonlocation_fields": true,
+    "all_previous_positions_preserved": true
+  },
+  "counts": {
+    "accounts": 1,
+    "warehouses": 2,
+    "stores": 377,
+    "vehicles": 21,
+    "daily_demands": 0,
+    "input_snapshots": 0,
+    "plan_versions": 0
+  },
+  "business_data": true,
+  "scope": "Only missing business store coordinates, coordinate source and revision stamps were enriched"
+}

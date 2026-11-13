@@ -1,0 +1,13 @@
+{
+  "frozen_before_run": true,
+  "targets": {
+    "read_p95_seconds": 2.0,
+    "write_p95_seconds": 3.0,
+    "unexpected_http_5xx": 0,
+    "independent_coverage_failures": 0
+  },
+  "concurrency": 12,
+  "operations_per_user": 200,
+  "roads": "TEST_GRID only",
+  "real_api_calls": 0
+}

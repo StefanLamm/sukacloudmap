@@ -1,0 +1,14 @@
+$ vitest run --config vitest.config.ts
+
+ RUN  v5.1.0 /Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/frontend
+
+
+ Test Files  15 passed (15)
+      Tests  79 passed (79)
+   Start at  21:08:31
+   Duration  25.74s (environment 45%, tests 42%, setup 7%, import 5%)
+
+Environment  jsdom was created 15 times · 10.47s total, 45% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

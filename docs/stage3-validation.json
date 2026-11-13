@@ -1,0 +1,193 @@
+{
+  "stage": "S3",
+  "title": "仓库、门店、车辆、报价、批量导入与兼容判断",
+  "verification_date": "2026-11-11",
+  "status": "IMPLEMENTED_AND_VERIFIED_ON_SQLITE",
+  "requirements": [
+    "R02",
+    "R03",
+    "R05",
+    "R08",
+    "R09",
+    "R10",
+    "R14",
+    "R16"
+  ],
+  "acceptance_scope": {
+    "AC07": "同仓同完整报价兼容部分通过；真实排线和车辆约束在S5/S6验证",
+    "AC10": "报价数据与完整参数部分通过；道路里程、正式费用计算在S5验证"
+  },
+  "implemented": [
+    "仓库、门店、车辆和两种报价的增改查、搜索分页和共享访问",
+    "稳定编号、同名门店、车牌规范化与唯一性、引用完整性",
+    "手工位置校正、坐标系及来源、未定位和待转换状态",
+    "明确营业跨日、北京时间最晚到店和非负整数卸货时长",
+    "车辆按件数容量及独立货车参数，无续航或车型收费倍率",
+    "仓库当日发车时间、车辆当日归仓及可用性，独立修订",
+    "精确十进制价格、NULL与零价分离、按模式完整参数校验",
+    "按日期生效的只读报价版本，修改追加版本而不改写旧版",
+    "同仓与完整有效报价参数签名兼容，城市和名称不参与",
+    "四类主资料xlsx模板、逐行预览、整行更新、原子提交及幂等回执",
+    "主资料修订检查、24小时预览有效期、文件及XML保护",
+    "0001_accounts到0002_master_data增量迁移、保留S2资料"
+  ],
+  "automated_tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 105,
+    "failed": 0,
+    "stage3_cases": 72,
+    "stage2_regression_cases": 33,
+    "duration_seconds": 25.95,
+    "environment": "Python 3.12.14 / FastAPI 0.162.4 / SQLAlchemy 2.1.8 / temporary SQLite databases",
+    "warning": "Starlette提示httpx测试客户端将弃用；当前测试全部通过。",
+    "evidence": "tests/test_stage3.py 与 tests/test_stage2.py"
+  },
+  "test_scenarios": [
+    {
+      "input": "匿名及普通业务账号",
+      "expected": "匿名401，业务账号共享读写主资料，写请求要求CSRF",
+      "actual": "PASS",
+      "test": "test_master_data_requires_login / test_business_users_share_and_maintain_master_data"
+    },
+    {
+      "input": "缺仓、重名、非法时间、负卸货、非正整数容量、重复规范化车牌、缺道路字段",
+      "expected": "错误被定位拒绝；合法重名保留不同编号；缺道路字段只标记未齐全",
+      "actual": "PASS",
+      "test": "test_store_validation / test_vehicle_fields / test_stable_codes_duplicate_names_cross_midnight_and_zero_unload / test_plate_normalization_capacity_and_missing_road_profile"
+    },
+    {
+      "input": "跨城同价、同城异价、名称不同同价、出货仓不同，逐个修改起送/包含店数/串店费",
+      "expected": "仅同仓完整参数一致兼容，任一有效参数差异即分组",
+      "actual": "PASS",
+      "test": "test_cross_city_same_price_different_name_and_warehouse_rules / test_base_price_compatibility_uses_all_parameters"
+    },
+    {
+      "input": "2、2.00、2.000及零价/空价，未来生效改价",
+      "expected": "相等值规范化；零有效而NULL不可用；旧版和未来生效日期保留",
+      "actual": "PASS",
+      "test": "test_decimal_precision_and_zero_prices / test_price_modes_independently_missing / test_quote_versions_immutable_and_effective_by_date"
+    },
+    {
+      "input": "预览后改资料、只改账号、重复确认、故意让第二行提交失败",
+      "expected": "资料变更拒绝提交；账号变更不误伤；重复确认幂等；失败整批回滚",
+      "actual": "PASS",
+      "test": "test_xlsx_stale_preview_rejected_but_account_changes_do_not_invalidate / test_xlsx_preview_atomic_commit_and_idempotency / test_import_failure_mid_transaction_rolls_back_whole_batch"
+    },
+    {
+      "input": "800家同名且有前导零编号的门店，51辆车",
+      "expected": "800个稳定编号及记录完整保留；没有50车硬上限",
+      "actual": "PASS",
+      "test": "test_xlsx_800_store_batch_complete_and_deterministic_codes / test_xlsx_vehicle_boolean_units_and_more_than_50_cars",
+      "scope": "仅主资料导入正确性；不是800店配送求解性能验收"
+    },
+    {
+      "input": "上传过程中停用账号、超5MiB文件、过期预览、公式/外链/坏表头",
+      "expected": "重新认证拒绝失效会话，超限和非法工作簿拒绝，无主资料部分写入",
+      "actual": "PASS",
+      "test": "test_account_disabled_during_upload_cannot_save_preview / test_upload_size_limit_and_expired_preview / test_xlsx_formulas_external_links_unknown_headers_and_empty_files"
+    },
+    {
+      "input": "已有S2账号和共享记录，升级到0002",
+      "expected": "账号与记录保留，迁移结构与ORM一致",
+      "actual": "PASS",
+      "test": "test_upgrade_from_stage2_keeps_accounts_records_and_schema"
+    }
+  ],
+  "frontend": {
+    "version": "0.3.0",
+    "command": "./scripts/build-frontend.sh",
+    "typescript": "PASS",
+    "production_build": "PASS",
+    "node": "24.22.1",
+    "vite": "6.4.6",
+    "react": "19.3.1"
+  },
+  "dependencies": {
+    "pip_check": "PASS",
+    "openpyxl": "3.1.5",
+    "defusedxml": "0.7.1",
+    "lock_file": "requirements.lock",
+    "upload_transport": "bounded raw XLSX bytes; multipart dependency not required"
+  },
+  "real_http_restart": {
+    "status": "PASS",
+    "script": "scripts/verify_live_restart.py",
+    "environment": "temporary file SQLite / two independent uvicorn processes / real HTTP",
+    "checks": [
+      "两个业务账号共享记录和四类主资料",
+      "未来报价不提前生效",
+      "零价保留",
+      "车辆当日换仓和不可用保留",
+      "不同进程重启",
+      "有效会话继续有效",
+      "主资料catalog重启前后完全相同",
+      "两份报价历史保留",
+      "业务账号管理员API403",
+      "构建页面HTTP200"
+    ],
+    "business_data_modified": false,
+    "temporary_processes_stopped": true
+  },
+  "browser_qa": {
+    "status": "PASS",
+    "environment": "in-app browser / dedicated temporary SQLite / http://127.0.0.1:8001",
+    "checks": [
+      "登录和退出",
+      "新增W03仓库并保存显示",
+      "跨城同价异名门店兼容",
+      "错误文件来源第3行仓库字段报错且确认禁用",
+      "修正文件后整批新增S10和S11",
+      "报价编辑追加只读历史",
+      "未来生效版本保留当前日期旧价并可切换生效日",
+      "车辆当日归W02且不可用，默认归仓仍W01",
+      "门店20:00至次日02:00、最晚到店2026-11-12T01:30保存回读",
+      "共配0改为空后明确显示共配缺价",
+      "窄屏表格横向滚动和稳定行高"
+    ],
+    "fixed_during_qa": [
+      "日期/时间控件显示已变更而提交旧状态：补充input事件同步；重测未来报价、配送日期、营业时间和最晚到店全部正确",
+      "窄屏门店名称被挤为逐字多行：设置资料表最小宽度、名称最小宽度及复选框内边距，复核正常横向滚动"
+    ],
+    "screenshots": {
+      "stage3-compatibility.png": "a4847a47d11c3db3cb3f9aa0f83a90a22a5be80d22fdec98807a2aaa43473528",
+      "stage3-import-errors.png": "715ce82452e3755b6bd692cf9997d22efed82177305a35a0064b84cef7ca229f",
+      "stage3-quote-versions.png": "aa0753d0ed6079f89ad371a374305f4af3c56b270eed66b15ce4af25947760f4",
+      "stage3-stores.png": "9a673454a1d28ffff94e59bec5d7bd84252a5eb0e77e6dda805be49c48a9dffe",
+      "stage3-vehicles.png": "e0683876f056cf4a689af4e8365c754fe9ee749bb47744205f557c4dfd3fe72c"
+    },
+    "temporary_server_stopped": true,
+    "temporary_database_removed": true
+  },
+  "migration": {
+    "head": "0002_master_data",
+    "upgrade_from_stage2": "PASS",
+    "orm_schema_comparison": "PASS_SQLITE",
+    "existing_business_database_foreign_key_violations": 0
+  },
+  "workspace_hygiene": {
+    "phase1_and_stage2_historical_artifacts_unchanged": true,
+    "qa_admin_in_business_database": false,
+    "business_database_counts_at_verification": {
+      "accounts": 1,
+      "shared_records": 0,
+      "warehouses": 0,
+      "stores": 0,
+      "vehicles": 0,
+      "quotes": 0,
+      "master_imports": 0
+    },
+    "test_data_seeded_into_business_database": false,
+    "test_servers_stopped": true,
+    "test_databases_removed": true
+  },
+  "limits": {
+    "postgresql": "NOT_RUN_TARGET_SERVER_NOT_AVAILABLE",
+    "amap_map_picker_and_coordinate_conversion": "S5_NOT_IMPLEMENTED",
+    "amap_real_truck_roads": "S5_NOT_RUN",
+    "daily_quantity_import_and_input_snapshots": "S4_NOT_IMPLEMENTED",
+    "route_cost_engine_and_optimizer": "S5_S6_NOT_IMPLEMENTED",
+    "formal_production_deployment": "NOT_PERFORMED"
+  },
+  "next_stage": "S4 每日需求导入与输入快照",
+  "guide": "docs/stage3-guide.md"
+}

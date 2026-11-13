@@ -1,0 +1,129 @@
+{
+  "version": "0.11.0",
+  "servers": {
+    "main": {
+      "port": 8000,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "development",
+        "test_fixture": false,
+        "default_delivery_date": null,
+        "label": ""
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-CiEt5I2P.js",
+          "sha256": "328b1bb6b8a7db1c222ad2403000a100486bfe7b1f5176791a1387383902d2dc"
+        }
+      ],
+      "amap_csp": true
+    },
+    "trial": {
+      "port": 8001,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "test",
+        "test_fixture": true,
+        "default_delivery_date": "2026-08-06",
+        "label": "隔离测试 · 模拟道路，不能执行"
+      },
+      "authenticated_routes": {
+        "/api/maps/config": 401,
+        "/api/planning/capabilities": 401,
+        "/_AMapService/v4/maps": 401
+      },
+      "assets": [
+        {
+          "path": "/assets/index-CiEt5I2P.js",
+          "sha256": "328b1bb6b8a7db1c222ad2403000a100486bfe7b1f5176791a1387383902d2dc"
+        }
+      ],
+      "amap_csp": true
+    }
+  },
+  "preservation": {
+    "main": {
+      "all_tables_content_unchanged": true,
+      "counts": {
+        "accounts": 1,
+        "alembic_version": 1,
+        "audit_events": 387,
+        "daily_demands": 0,
+        "demand_days": 0,
+        "demand_imports": 0,
+        "input_snapshots": 0,
+        "location_tasks": 40,
+        "login_sessions": 1,
+        "login_throttles": 0,
+        "master_imports": 3,
+        "plan_versions": 0,
+        "planning_jobs": 0,
+        "quote_versions": 4,
+        "quotes": 2,
+        "road_cache": 0,
+        "shared_records": 0,
+        "store_days": 0,
+        "stores": 377,
+        "system_state": 1,
+        "vehicle_days": 0,
+        "vehicles": 0,
+        "warehouse_days": 0,
+        "warehouses": 2
+      },
+      "integrity": "ok",
+      "foreign_key_errors": 0,
+      "accounts_unchanged": true
+    },
+    "trial": {
+      "all_tables_content_unchanged": true,
+      "counts": {
+        "accounts": 1,
+        "alembic_version": 1,
+        "audit_events": 720,
+        "daily_demands": 11919,
+        "demand_days": 150,
+        "demand_imports": 150,
+        "input_snapshots": 150,
+        "location_tasks": 0,
+        "login_sessions": 1,
+        "login_throttles": 0,
+        "master_imports": 0,
+        "plan_versions": 1,
+        "planning_jobs": 1,
+        "quote_versions": 1,
+        "quotes": 1,
+        "road_cache": 0,
+        "shared_records": 0,
+        "store_days": 0,
+        "stores": 365,
+        "system_state": 1,
+        "vehicle_days": 0,
+        "vehicles": 50,
+        "warehouse_days": 0,
+        "warehouses": 2
+      },
+      "integrity": "ok",
+      "foreign_key_errors": 0,
+      "accounts_unchanged": true
+    }
+  },
+  "local_configuration": {
+    "map_provider": "AMAP",
+    "js_ready": true,
+    "web_key_ready": true,
+    "route_mode": "DRIVING",
+    "selected_calls_enabled": true,
+    "job_max_calls": 10,
+    "truck_calls_enabled": false,
+    "env_mode": "0o600"
+  }
+}

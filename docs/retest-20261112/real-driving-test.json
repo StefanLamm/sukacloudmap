@@ -1,0 +1,36 @@
+{
+  "day": "2026-10-31",
+  "source": "real registration quantities and current linked business coordinates",
+  "warehouses": 1,
+  "whole_store_tasks": 3,
+  "test_vehicle_only": true,
+  "external_plate_sent": false,
+  "plans": [
+    {
+      "version": 1,
+      "order": "原序",
+      "tasks": 3,
+      "pieces": 56,
+      "meters": 410826,
+      "fee": "2382.79",
+      "polyline_points": 3121,
+      "source": "DRIVING",
+      "confirmable": false,
+      "non_reference_issues": []
+    },
+    {
+      "version": 2,
+      "order": "反序",
+      "tasks": 3,
+      "pieces": 56,
+      "meters": 441542,
+      "fee": "2560.94",
+      "polyline_points": 3267,
+      "source": "DRIVING",
+      "confirmable": false,
+      "non_reference_issues": []
+    }
+  ],
+  "new_road_attempts": 6,
+  "total_counted_attempts": 10
+}

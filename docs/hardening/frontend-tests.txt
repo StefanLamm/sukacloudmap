@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  23:09:46
+   Duration  2.57s (tests 50%, environment 34%, setup 5%, import 5%, transform 5%)
+

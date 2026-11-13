@@ -1,0 +1,18 @@
+[
+  {
+    "file": "data/retest-20261112/full-replay.db",
+    "sha256": "eb0d12e92a00354e4c95048a8ea76f579d7970fe32147623d28943a298c56115",
+    "active_original_accounts": 1,
+    "qa_credentials_disabled": true,
+    "sessions_removed": true,
+    "integrity": "ok"
+  },
+  {
+    "file": "data/retest-20261112/real-route-qa.db",
+    "sha256": "690bb0ec8b05985ef0e6eacc91219a8240eed455d1d96e3e4036c856e89e7ebd",
+    "active_original_accounts": 1,
+    "qa_credentials_disabled": true,
+    "sessions_removed": true,
+    "integrity": "ok"
+  }
+]

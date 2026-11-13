@@ -1,0 +1,34 @@
+{
+  "authorized_limit": 10,
+  "calls": 4,
+  "attempts": [
+    {
+      "call": 1,
+      "endpoint": "tsapi.amap.com/v1/logistics/transport/route/direction/truck",
+      "http": 200,
+      "provider_code": "10012"
+    },
+    {
+      "call": 2,
+      "mode": "DRIVING",
+      "endpoint": "restapi.amap.com/v5/direction/driving"
+    },
+    {
+      "call": 3,
+      "mode": "DRIVING",
+      "endpoint": "restapi.amap.com/v5/direction/driving"
+    },
+    {
+      "call": 4,
+      "mode": "DRIVING",
+      "endpoint": "restapi.amap.com/v5/direction/driving",
+      "http": 200,
+      "provider_code": "10000"
+    }
+  ],
+  "synthetic_vehicle_only": true,
+  "status": "DRIVING_REFERENCE_RECEIVED",
+  "policy": "Truck and driving tests share a conservative total limit of 10 calls; no further truck calls.",
+  "polyline_points": 127,
+  "truck_time_verified": false
+}

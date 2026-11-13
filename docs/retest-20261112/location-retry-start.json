@@ -1,0 +1,8 @@
+{
+  "queued": {
+    "warehouses": 0,
+    "stores": 59
+  },
+  "already_linked_positions_preserved": true,
+  "only_failed_and_missing": true
+}

@@ -1,0 +1,84 @@
+{
+  "frontend_only_code_change": true,
+  "root_cause": "POI result name was spread into business form state",
+  "allowed_location_fields": [
+    "address",
+    "longitude",
+    "latitude",
+    "crs",
+    "location_source"
+  ],
+  "protected_fields": [
+    "name",
+    "code",
+    "warehouse_id"
+  ],
+  "producers": [
+    "AMap",
+    "OpenStreetMap"
+  ],
+  "editor_modes": [
+    "new",
+    "edit",
+    "location_only",
+    "explicit_manual_rename"
+  ],
+  "regression": {
+    "before_fix": "8 failed, 32 passed; original bug reproduced",
+    "after_fix": "40 passed in 6 files",
+    "typecheck_and_production_build": "PASS",
+    "new_editor_cases": 8,
+    "map_search_click_drag_center_covered": true,
+    "backend_source_changed": false
+  },
+  "servers": {
+    "8000": {
+      "health": "PASS",
+      "updated_frontend_served": true,
+      "assets": [
+        {
+          "path": "/assets/index-DX2JVyl4.js",
+          "sha256": "513284882c132c2596dfa34d6c86e3865154ad1081aea84dadbf51c35628c58b"
+        }
+      ]
+    },
+    "8001": {
+      "health": "PASS",
+      "updated_frontend_served": true,
+      "assets": [
+        {
+          "path": "/assets/index-DX2JVyl4.js",
+          "sha256": "513284882c132c2596dfa34d6c86e3865154ad1081aea84dadbf51c35628c58b"
+        }
+      ]
+    },
+    "8765": {
+      "health": "PASS",
+      "updated_frontend_served": true,
+      "assets": [
+        {
+          "path": "/assets/index-DX2JVyl4.js",
+          "sha256": "513284882c132c2596dfa34d6c86e3865154ad1081aea84dadbf51c35628c58b"
+        }
+      ]
+    },
+    "8766": {
+      "health": "PASS",
+      "updated_frontend_served": true,
+      "assets": [
+        {
+          "path": "/assets/index-DX2JVyl4.js",
+          "sha256": "513284882c132c2596dfa34d6c86e3865154ad1081aea84dadbf51c35628c58b"
+        }
+      ]
+    }
+  },
+  "approved_existing_name_repair": {
+    "code": "JS0039",
+    "name": "徐州矿大文昌店",
+    "address_and_coordinates_preserved": true,
+    "other_manual_renames_preserved": true,
+    "audit_action": "MASTER_NAME_REPAIR",
+    "private_record": "data/location-name-fix-20261112/name-repair.json"
+  }
+}

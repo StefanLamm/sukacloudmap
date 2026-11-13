@@ -1,0 +1,131 @@
+{
+  "date": "2026-11-12",
+  "public_addresses_only": true,
+  "queries": [
+    {
+      "query": "合肥市东流路100号",
+      "status": "PASS",
+      "candidates": 2,
+      "unique_precise_matches": 1,
+      "results": [
+        {
+          "longitude": "117.227185",
+          "latitude": "31.820824",
+          "name": "安徽省合肥市蜀山区东流路100号",
+          "address": "安徽省合肥市蜀山区东流路100号",
+          "crs": "GCJ02",
+          "location_source": "高德地图地址解析",
+          "provider": "AMAP",
+          "match_level": "门址",
+          "automatic_eligible": true,
+          "address_parts": {
+            "state": "安徽省",
+            "city": "合肥市",
+            "district": "蜀山区",
+            "street": "东流路",
+            "housenumber": "100号"
+          },
+          "automatic_rank": 4
+        },
+        {
+          "longitude": "117.218291",
+          "latitude": "31.818556",
+          "name": "安徽省合肥市蜀山区东流路100号",
+          "address": "安徽省合肥市蜀山区东流路100号",
+          "crs": "GCJ02",
+          "location_source": "高德地图地址解析",
+          "provider": "AMAP",
+          "match_level": "门牌号",
+          "automatic_eligible": true,
+          "address_parts": {
+            "state": "安徽省",
+            "city": "合肥市",
+            "district": "蜀山区",
+            "street": "东流路",
+            "housenumber": ""
+          },
+          "automatic_rank": 3
+        }
+      ]
+    },
+    {
+      "query": "合肥市蜀山区梅山路107号",
+      "status": "PASS",
+      "candidates": 3,
+      "unique_precise_matches": 1,
+      "results": [
+        {
+          "longitude": "117.260534",
+          "latitude": "31.851204",
+          "name": "安徽省合肥市蜀山区梅山路107号",
+          "address": "安徽省合肥市蜀山区梅山路107号",
+          "crs": "GCJ02",
+          "location_source": "高德地图地址解析",
+          "provider": "AMAP",
+          "match_level": "门址",
+          "automatic_eligible": true,
+          "address_parts": {
+            "state": "安徽省",
+            "city": "合肥市",
+            "district": "蜀山区",
+            "street": "梅山路",
+            "housenumber": "107号"
+          },
+          "automatic_rank": 4
+        },
+        {
+          "longitude": "117.297497",
+          "latitude": "31.856404",
+          "name": "安徽省合肥市蜀山区芜湖路107号",
+          "address": "安徽省合肥市蜀山区芜湖路107号",
+          "crs": "GCJ02",
+          "location_source": "高德地图地址解析",
+          "provider": "AMAP",
+          "match_level": "门址",
+          "automatic_eligible": false,
+          "address_parts": {
+            "state": "安徽省",
+            "city": "合肥市",
+            "district": "包河区",
+            "street": "芜湖路",
+            "housenumber": "107号"
+          },
+          "automatic_rank": 4
+        },
+        {
+          "longitude": "117.293344",
+          "latitude": "31.855079",
+          "name": "安徽省合肥市蜀山区芜湖路122号",
+          "address": "安徽省合肥市蜀山区芜湖路122号",
+          "crs": "GCJ02",
+          "location_source": "高德地图地址解析",
+          "provider": "AMAP",
+          "match_level": "门牌号",
+          "automatic_eligible": false,
+          "address_parts": {
+            "state": "安徽省",
+            "city": "合肥市",
+            "district": "包河区",
+            "street": "芜湖路",
+            "housenumber": ""
+          },
+          "automatic_rank": 3
+        }
+      ]
+    }
+  ],
+  "truck_calls": 0,
+  "transport": [
+    {
+      "path": "/v3/geocode/geo",
+      "http": 200,
+      "provider_code": "10000"
+    },
+    {
+      "path": "/v3/geocode/geo",
+      "http": 200,
+      "provider_code": "10000"
+    }
+  ],
+  "candidate_policy": "Exact street/house/district checks, then prefer precise entrance/unit; equal precision alternatives require manual selection."
+}

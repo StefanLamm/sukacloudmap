@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "servers": [
+    {
+      "port": 8000,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "development",
+        "test_fixture": false,
+        "default_delivery_date": null,
+        "label": ""
+      },
+      "login_served": true
+    },
+    {
+      "port": 8001,
+      "health": {
+        "status": "ok"
+      },
+      "runtime": {
+        "environment": "test",
+        "test_fixture": true,
+        "default_delivery_date": "2026-08-06",
+        "label": "隔离测试 · 模拟道路，不能执行"
+      },
+      "login_served": true
+    }
+  ],
+  "trial_plan_hash_unchanged": true,
+  "trial_draft_preserved": true,
+  "original_business_counts_unchanged": true,
+  "active_trial_jobs": 0
+}

@@ -1,0 +1,17 @@
+{
+  "status": "AMAP_AUTH",
+  "attempts": [
+    {
+      "endpoint": "/v3/geocode/geo",
+      "http": 200,
+      "infocode": "10000",
+      "count": "1"
+    },
+    {
+      "endpoint": "/v3/place/text",
+      "http": 200,
+      "infocode": "10045",
+      "count": ""
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "browser_downloaded": true,
+  "checks": [
+    {
+      "range": "D2:D10001",
+      "formula": "\"是,否\"",
+      "type": "list",
+      "errorStyle": "stop",
+      "dropdown_visible": true,
+      "error_enabled": true
+    },
+    {
+      "range": "E2:E10001",
+      "formula": "\"微型,轻型,中型,重型\"",
+      "type": "list",
+      "errorStyle": "stop",
+      "dropdown_visible": true,
+      "error_enabled": true
+    },
+    {
+      "range": "F2:F10001",
+      "formula": "\"普通货车,纯电动货车,插电混动货车\"",
+      "type": "list",
+      "errorStyle": "stop",
+      "dropdown_visible": true,
+      "error_enabled": true
+    },
+    {
+      "range": "G2:G10001",
+      "formula": "\"蓝牌,黄牌,绿牌,黄绿牌,白牌,黑牌,其他\"",
+      "type": "list",
+      "errorStyle": "stop",
+      "dropdown_visible": true,
+      "error_enabled": true
+    }
+  ]
+}

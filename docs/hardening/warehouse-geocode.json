@@ -1,0 +1,10 @@
+{
+  "合肥市人民政府": {
+    "status": "UNAVAILABLE",
+    "type": "HTTPStatusError"
+  },
+  "淮安市人民政府": {
+    "status": "UNAVAILABLE",
+    "type": "HTTPStatusError"
+  }
+}

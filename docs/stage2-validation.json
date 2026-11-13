@@ -1,0 +1,135 @@
+{
+  "stage": "S2",
+  "title": "账号登录、账号管理与共享数据基础",
+  "verification_date": "2026-11-11",
+  "status": "IMPLEMENTED_AND_VERIFIED_ON_SQLITE",
+  "requirements": [
+    "R01",
+    "R25"
+  ],
+  "acceptance": [
+    "AC01",
+    "AC02"
+  ],
+  "implemented": [
+    "账号密码登录与退出",
+    "Argon2id密码散列",
+    "数据库会话及HttpOnly Cookie",
+    "管理员创建、停用、启用和重置账号",
+    "服务端管理员权限与页面保护",
+    "停用、重置及变更角色后所有旧会话失效",
+    "共享记录持久化及乐观版本冲突",
+    "操作人和北京时间审计",
+    "初始数据库迁移与管理员初始化",
+    "CSRF、请求来源、持久化登录限速和错误脱敏"
+  ],
+  "automated_tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 33,
+    "failed": 0,
+    "duration_seconds": 9.29,
+    "warning": "Starlette提示httpx测试客户端将弃用；当前用例全部通过。"
+  },
+  "frontend": {
+    "command": "./scripts/build-frontend.sh",
+    "typescript": "PASS",
+    "production_build": "PASS",
+    "node": "24.22.1",
+    "react": "19.3.1",
+    "vite": "6.4.6"
+  },
+  "dependencies": {
+    "python": "3.12.14",
+    "fastapi": "0.162.4",
+    "sqlalchemy": "2.1.8",
+    "alembic": "1.20.1",
+    "pwdlib": "0.3.1",
+    "uvicorn": "0.54.0",
+    "pytest": "9.2.0",
+    "pip_check": "PASS"
+  },
+  "ac01": {
+    "status": "PASS_SQLITE",
+    "evidence": [
+      "匿名业务API返回401",
+      "匿名业务页面重定向登录",
+      "普通业务账号调用账号管理和审计API返回403",
+      "普通账号没有管理入口",
+      "CSRF缺失及外部Origin被拒绝"
+    ]
+  },
+  "ac02": {
+    "status": "PASS_SQLITE",
+    "evidence": [
+      "两个业务账号读写同一共享记录",
+      "停用后原会话和登录均失效",
+      "启用后旧会话仍不可用，重新登录可用",
+      "重置密码后旧密码与多个旧会话全部失效",
+      "服务重启后账号、记录和有效会话保留",
+      "退出后捕获的旧Cookie不可重用"
+    ]
+  },
+  "real_http_restart": {
+    "status": "PASS",
+    "script": "scripts/verify_live_restart.py",
+    "environment": "临时文件SQLite + 两个独立Uvicorn进程",
+    "checks": [
+      "管理员初始化",
+      "两业务账号共享记录",
+      "第二次启动为不同进程",
+      "已有会话继续有效",
+      "账号及共享记录保持",
+      "业务账号管理接口403",
+      "前端页面HTTP200"
+    ]
+  },
+  "launcher": {
+    "result": "PASS",
+    "command": "bash scripts/start.sh",
+    "checks": [
+      "automatic_migration",
+      "first_admin_initialization",
+      "login_http_200",
+      "frontend_http_200",
+      "favicon_http_200",
+      "no_password_in_output"
+    ],
+    "database": "temporary SQLite",
+    "production_data_modified": false
+  },
+  "browser_qa": {
+    "status": "PASS",
+    "database": "临时专用SQLite，已清理",
+    "checks": [
+      "登录和退出",
+      "共享记录新增及刷新后保留",
+      "业务人员可见同一记录且无管理入口",
+      "账号列表与新建表单",
+      "重置密码表单提示",
+      "业务账号停用及重新启用",
+      "最后一位管理员不能停用",
+      "弹窗初始输入焦点",
+      "窄窗口侧栏及表格水平滚动"
+    ],
+    "password_reset_submission": "由接口集成测试验证，浏览器只检查表单和提示",
+    "screenshots": {
+      "stage2-accounts.png": "3562795f7f3f49099053648d63f7fe77a6fe2a59bae097362af06031c3b363da",
+      "stage2-workspace.png": "c8620019ca4036cfea588cc062b762c181d6123ca2ed11d585649530c6ee4765"
+    }
+  },
+  "migration": "已重复迁移并对比ORM模型，结构一致；SQLite外键开启。",
+  "limits": {
+    "postgresql": "NOT_RUN_TARGET_SERVER_NOT_AVAILABLE",
+    "production_deployment": "NOT_PERFORMED",
+    "amap_real_api": "NOT_IN_STAGE2",
+    "stages_3_to_8": "NOT_IMPLEMENTED"
+  },
+  "workspace_hygiene": {
+    "phase1_source_unchanged": true,
+    "business_database_test_accounts": 0,
+    "business_database_test_records": 0,
+    "temporary_servers_stopped": true,
+    "credentials_in_frontend_or_docs": false
+  },
+  "next_stage": "S3 基础资料与报价"
+}

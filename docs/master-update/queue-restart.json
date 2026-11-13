@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "transport": "real HTTP, independent uvicorn processes",
+  "fixture_provider": true,
+  "external_business_address_calls": 0,
+  "pending_before_restart": true,
+  "linked_after_restart": true,
+  "existing_records_and_manual_status_unchanged": true,
+  "login_session_persisted": true,
+  "business_database_used": false
+}

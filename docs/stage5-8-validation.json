@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-11",
+  "version": "0.8.0",
+  "status": "LOCAL_ACCEPTANCE_COMPLETE_HUMAN_REVIEW_PENDING",
+  "source_fingerprint": "56d3fd537d4a8f64cf44653d033231b5f8fc26bdcce5ea4e881159fdde6dba40",
+  "scope_confirmed_by_user": {
+    "roads": "fixed fixtures first; live API configuration later",
+    "deployment": "local SQLite first; production environment later"
+  },
+  "stages": {
+    "S5": "LOCAL_IMPLEMENTED; LIVE_TRUCK_SEMANTICS_NOT_VERIFIED",
+    "S6": "PASS_FIXED_56_40_AND_SCALE; HEURISTIC_NO_GLOBAL_OPTIMUM_CLAIM",
+    "S7": "LOCAL_IMPLEMENTED_AND_BROWSER_TESTED; HUMAN_FEEDBACK_PENDING",
+    "S8": "LOCAL_TESTS_COMPLETE; PRODUCTION_AND_LIVE_ACCEPTANCE_DEFERRED"
+  },
+  "automated_tests": {
+    "status": "PASS",
+    "passed": 229,
+    "failed": 0,
+    "duration_seconds": 63.87,
+    "new_stage5_8_tests": 66,
+    "prior_stage2_4_regression_tests": 163,
+    "output": "docs/stage5-8-test-output.txt",
+    "warning": "One Starlette httpx future deprecation warning; no broken package requirements"
+  },
+  "frontend": {
+    "typescript": "PASS",
+    "production_build": "PASS",
+    "split_chunks_kb": [
+      128.83,
+      151.44,
+      222.29
+    ],
+    "dependency_check": "PASS"
+  },
+  "known_answers": {
+    "MIXED_56": "56.00",
+    "SHARED_40": "40.00"
+  },
+  "scale": {
+    "warehouses": 4,
+    "tasks": 800,
+    "pieces": 24000,
+    "vehicles": 50,
+    "distribution": [
+      13,
+      13,
+      12,
+      12
+    ],
+    "hot_runs": 20,
+    "p95_seconds": 4.15318,
+    "p95_scope": "pure solver only, not upload/UI/database end-to-end",
+    "budget_seconds": 15,
+    "result_fee": "16518.40",
+    "all_common_baseline": "77910.00",
+    "all_constraints_passed": true,
+    "unique_plan_count": 1,
+    "real_api_calls": 0,
+    "performance_status": "NOT_FROZEN"
+  },
+  "sqlite_upgrade": {
+    "head": "0004_route_plans",
+    "original_record_ids_preserved": true,
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka-pre-s5-8-20261111-9b13c3.db",
+    "integrity": "ok"
+  },
+  "backup_restore_test": "PASS_TEMPORARY_DB",
+  "restart_http": "docs/stage5-8-http-validation.json",
+  "browser": "docs/stage5-8-browser-evidence.json",
+  "acceptance_matrix": "docs/stage5-8-acceptance.md",
+  "performance_samples": "docs/stage5-8-performance.json",
+  "remaining": [
+    "human final adjustment feedback",
+    "performance target selection",
+    "real truck departure-time and full restrictions contract + verified routing coordinates + authorized calls",
+    "at least 3 real API cold runs",
+    "PostgreSQL/HTTPS deployment and restore drill"
+  ],
+  "production_release_accepted": false,
+  "original_stage1_documents_modified": false,
+  "real_business_test_data_inserted": false
+}

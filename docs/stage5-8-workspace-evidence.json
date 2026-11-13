@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-11",
+  "schema_before": "0003_daily_inputs",
+  "schema_after": "0004_route_plans",
+  "backup": {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka-pre-s5-8-20261111-9b13c3.db",
+    "schema": "0003_daily_inputs",
+    "sha256": "7de33b9ba48f10a0167c3fbfe4bcc33808e7b7e5e220e5872d0c926dad40c21d",
+    "integrity": "ok"
+  },
+  "existing_record_ids_preserved": true,
+  "counts": {
+    "accounts": 1,
+    "shared_records": 0,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0,
+    "daily_demands": 0,
+    "input_snapshots": 0
+  },
+  "test_data_inserted": false,
+  "integrity": "ok"
+}

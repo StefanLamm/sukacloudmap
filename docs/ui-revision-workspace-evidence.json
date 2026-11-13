@@ -1,0 +1,39 @@
+{
+  "warehouse_search_and_drag_saved": [
+    "120.30612946",
+    "31.58694398",
+    "WGS84",
+    "OpenStreetMap拖拽校正"
+  ],
+  "store_map_click_saved": [
+    "120.62846661",
+    "31.31808003",
+    "WGS84",
+    "OpenStreetMap地图选点"
+  ],
+  "vehicle_default": 1,
+  "vehicle_override": [
+    "2026-11-12",
+    0
+  ],
+  "warehouse_override": [
+    "2026-11-12",
+    "09:30"
+  ],
+  "business_database_counts": {
+    "accounts": 1,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0,
+    "master_imports": 0
+  },
+  "qa_accounts_in_business_database": 0,
+  "schema": "0002_master_data",
+  "screenshots": {
+    "revision-location-picker.png": "7c28afaba65a5c8104f693673c0656c1bc057c5ff45f0d5eb85bc5254ebaffa7",
+    "revision-planning-compatibility.png": "d7500266937249b47f72ff13c47dc673e3fff88658646fb428f61c27a4a74031",
+    "revision-planning.png": "d1aedf3f3c172f30069979e50db59e959fc4665bee925b2216361f628d0bb5ea",
+    "revision-warehouse-map.png": "295d2d0fd2ffb05f0f0b61985d1009d9016cd1db2d36a7c76b189497e826097b"
+  }
+}

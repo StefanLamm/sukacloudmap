@@ -1,0 +1,1438 @@
+{
+  "status": "PASS",
+  "road_source": "TEST_GRID",
+  "real_road_calls": 0,
+  "business_database_modified_by_replay": false,
+  "user_approved_unassigned_rows_to_HF": 264,
+  "vehicle_import": {
+    "rows": 50,
+    "max_pieces": 400,
+    "chinese_type_choices": 3,
+    "invalid_batch_rolled_back": true,
+    "repeat_unchanged": 50,
+    "receipt": {
+      "created": 50,
+      "updated": 0,
+      "unchanged": 0
+    }
+  },
+  "original_workbooks": [
+    {
+      "source": "10月份运费登记表.xlsx",
+      "sha256": "0edf3491f8a6e2903d1989c6eaf5a3b70d6147983b1af0485c7e80e6cc16577e",
+      "date": "2026-10-27",
+      "rows": 129,
+      "pieces": 2103,
+      "header_row": 2,
+      "status": "PASS"
+    },
+    {
+      "source": "6月份运费登记表.xlsx",
+      "sha256": "95ddb361d6c29d06b18a6a447d3502658f7ee1d8014e3ef2977bd25f77000e2d",
+      "date": "2026-06-30",
+      "rows": 132,
+      "pieces": 2659,
+      "header_row": 2,
+      "status": "PASS"
+    },
+    {
+      "source": "7月份运费登记表.xlsx",
+      "sha256": "5a0cdbf6666d4e855b25f2e8567203b0a1dd8a937caefdc3bd7c042a62fc0cc0",
+      "date": "2026-07-10",
+      "rows": 120,
+      "pieces": 2177,
+      "header_row": 2,
+      "status": "PASS"
+    },
+    {
+      "source": "8月份运费登记表.xlsx",
+      "sha256": "0be1fc1fd01612172372f1d735c715a7ca24cdd050276646426fddfbf05a95a1",
+      "date": "2026-08-06",
+      "rows": 150,
+      "pieces": 3969,
+      "header_row": 2,
+      "status": "PASS"
+    },
+    {
+      "source": "9月份运费登记表.xlsx",
+      "sha256": "4726baf39f7b5c37534018fc97daf4c4d0e5b196b49ee0fc3562c47cca79fe34",
+      "date": "2026-09-08",
+      "rows": 137,
+      "pieces": 2835,
+      "header_row": 2,
+      "status": "PASS"
+    }
+  ],
+  "replay_progress": {
+    "completed": 150,
+    "total": 150
+  },
+  "replay": {
+    "days": 150,
+    "tasks": 12183,
+    "pieces": 241806,
+    "all_exports_checked": true,
+    "samples": [
+      {
+        "date": "2026-06-01",
+        "tasks": 80,
+        "pieces": 1579,
+        "used_vehicles": 4,
+        "seconds": 1.5828,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-02",
+        "tasks": 124,
+        "pieces": 2787,
+        "used_vehicles": 8,
+        "seconds": 1.8394,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-03",
+        "tasks": 79,
+        "pieces": 1614,
+        "used_vehicles": 5,
+        "seconds": 1.3554,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-04",
+        "tasks": 85,
+        "pieces": 1783,
+        "used_vehicles": 5,
+        "seconds": 1.294,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-05",
+        "tasks": 124,
+        "pieces": 2428,
+        "used_vehicles": 7,
+        "seconds": 2.2508,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-06",
+        "tasks": 66,
+        "pieces": 1274,
+        "used_vehicles": 4,
+        "seconds": 1.1638,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-07",
+        "tasks": 20,
+        "pieces": 502,
+        "used_vehicles": 2,
+        "seconds": 0.4586,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-08",
+        "tasks": 70,
+        "pieces": 1438,
+        "used_vehicles": 4,
+        "seconds": 1.3205,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-09",
+        "tasks": 119,
+        "pieces": 2262,
+        "used_vehicles": 6,
+        "seconds": 1.8033,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-10",
+        "tasks": 91,
+        "pieces": 1678,
+        "used_vehicles": 5,
+        "seconds": 1.5761,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-11",
+        "tasks": 84,
+        "pieces": 1635,
+        "used_vehicles": 5,
+        "seconds": 1.4411,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-12",
+        "tasks": 113,
+        "pieces": 2100,
+        "used_vehicles": 7,
+        "seconds": 1.8538,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-13",
+        "tasks": 85,
+        "pieces": 1800,
+        "used_vehicles": 6,
+        "seconds": 1.6223,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-14",
+        "tasks": 9,
+        "pieces": 241,
+        "used_vehicles": 2,
+        "seconds": 0.3935,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-15",
+        "tasks": 91,
+        "pieces": 1615,
+        "used_vehicles": 5,
+        "seconds": 1.7726,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-16",
+        "tasks": 131,
+        "pieces": 2859,
+        "used_vehicles": 8,
+        "seconds": 1.8245,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-17",
+        "tasks": 75,
+        "pieces": 1449,
+        "used_vehicles": 5,
+        "seconds": 1.2431,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-18",
+        "tasks": 89,
+        "pieces": 1889,
+        "used_vehicles": 5,
+        "seconds": 1.4061,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-19",
+        "tasks": 112,
+        "pieces": 2130,
+        "used_vehicles": 7,
+        "seconds": 1.6707,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-20",
+        "tasks": 81,
+        "pieces": 1467,
+        "used_vehicles": 5,
+        "seconds": 1.2956,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-21",
+        "tasks": 12,
+        "pieces": 485,
+        "used_vehicles": 2,
+        "seconds": 0.3676,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-22",
+        "tasks": 72,
+        "pieces": 1301,
+        "used_vehicles": 4,
+        "seconds": 1.3358,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-23",
+        "tasks": 127,
+        "pieces": 2491,
+        "used_vehicles": 7,
+        "seconds": 1.9281,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-24",
+        "tasks": 74,
+        "pieces": 1332,
+        "used_vehicles": 4,
+        "seconds": 1.1439,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-25",
+        "tasks": 90,
+        "pieces": 1544,
+        "used_vehicles": 4,
+        "seconds": 1.6333,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-26",
+        "tasks": 113,
+        "pieces": 2108,
+        "used_vehicles": 7,
+        "seconds": 2.0203,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-27",
+        "tasks": 73,
+        "pieces": 1473,
+        "used_vehicles": 5,
+        "seconds": 1.3673,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-28",
+        "tasks": 22,
+        "pieces": 547,
+        "used_vehicles": 2,
+        "seconds": 0.5049,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-29",
+        "tasks": 71,
+        "pieces": 1361,
+        "used_vehicles": 4,
+        "seconds": 1.3237,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-06-30",
+        "tasks": 132,
+        "pieces": 2659,
+        "used_vehicles": 7,
+        "seconds": 2.2706,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-01",
+        "tasks": 76,
+        "pieces": 1488,
+        "used_vehicles": 4,
+        "seconds": 1.5398,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-02",
+        "tasks": 76,
+        "pieces": 1791,
+        "used_vehicles": 5,
+        "seconds": 1.3815,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-03",
+        "tasks": 113,
+        "pieces": 2605,
+        "used_vehicles": 7,
+        "seconds": 1.8351,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-04",
+        "tasks": 80,
+        "pieces": 1474,
+        "used_vehicles": 5,
+        "seconds": 1.4695,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-05",
+        "tasks": 25,
+        "pieces": 448,
+        "used_vehicles": 2,
+        "seconds": 0.5124,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-06",
+        "tasks": 71,
+        "pieces": 1479,
+        "used_vehicles": 5,
+        "seconds": 1.3688,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-07",
+        "tasks": 112,
+        "pieces": 2131,
+        "used_vehicles": 6,
+        "seconds": 1.9717,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-08",
+        "tasks": 74,
+        "pieces": 1349,
+        "used_vehicles": 4,
+        "seconds": 1.3195,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-09",
+        "tasks": 80,
+        "pieces": 1595,
+        "used_vehicles": 5,
+        "seconds": 1.3792,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-10",
+        "tasks": 119,
+        "pieces": 2177,
+        "used_vehicles": 7,
+        "seconds": 1.9487,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-11",
+        "tasks": 67,
+        "pieces": 1368,
+        "used_vehicles": 5,
+        "seconds": 1.2811,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-13",
+        "tasks": 79,
+        "pieces": 1534,
+        "used_vehicles": 4,
+        "seconds": 1.3353,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-14",
+        "tasks": 107,
+        "pieces": 1976,
+        "used_vehicles": 6,
+        "seconds": 1.6607,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-15",
+        "tasks": 85,
+        "pieces": 1295,
+        "used_vehicles": 4,
+        "seconds": 1.6179,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-16",
+        "tasks": 71,
+        "pieces": 1334,
+        "used_vehicles": 5,
+        "seconds": 1.25,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-17",
+        "tasks": 102,
+        "pieces": 1997,
+        "used_vehicles": 6,
+        "seconds": 1.7846,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-18",
+        "tasks": 63,
+        "pieces": 1001,
+        "used_vehicles": 4,
+        "seconds": 1.1563,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-19",
+        "tasks": 12,
+        "pieces": 284,
+        "used_vehicles": 1,
+        "seconds": 0.4673,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-20",
+        "tasks": 88,
+        "pieces": 1571,
+        "used_vehicles": 5,
+        "seconds": 1.6645,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-21",
+        "tasks": 102,
+        "pieces": 1829,
+        "used_vehicles": 5,
+        "seconds": 1.7371,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-22",
+        "tasks": 67,
+        "pieces": 1145,
+        "used_vehicles": 4,
+        "seconds": 1.4409,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-23",
+        "tasks": 74,
+        "pieces": 1386,
+        "used_vehicles": 4,
+        "seconds": 1.3394,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-24",
+        "tasks": 101,
+        "pieces": 1955,
+        "used_vehicles": 6,
+        "seconds": 1.8555,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-25",
+        "tasks": 78,
+        "pieces": 1289,
+        "used_vehicles": 4,
+        "seconds": 1.7131,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-26",
+        "tasks": 12,
+        "pieces": 451,
+        "used_vehicles": 2,
+        "seconds": 0.4348,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-27",
+        "tasks": 74,
+        "pieces": 1301,
+        "used_vehicles": 4,
+        "seconds": 1.4631,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-28",
+        "tasks": 107,
+        "pieces": 2012,
+        "used_vehicles": 6,
+        "seconds": 1.629,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-29",
+        "tasks": 67,
+        "pieces": 1116,
+        "used_vehicles": 4,
+        "seconds": 1.2329,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-30",
+        "tasks": 91,
+        "pieces": 1696,
+        "used_vehicles": 5,
+        "seconds": 1.8214,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-07-31",
+        "tasks": 94,
+        "pieces": 2332,
+        "used_vehicles": 7,
+        "seconds": 1.895,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-01",
+        "tasks": 67,
+        "pieces": 1514,
+        "used_vehicles": 4,
+        "seconds": 1.1465,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-02",
+        "tasks": 7,
+        "pieces": 250,
+        "used_vehicles": 2,
+        "seconds": 0.4052,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-03",
+        "tasks": 77,
+        "pieces": 2098,
+        "used_vehicles": 6,
+        "seconds": 1.1643,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-04",
+        "tasks": 124,
+        "pieces": 4329,
+        "used_vehicles": 12,
+        "seconds": 1.4633,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-05",
+        "tasks": 89,
+        "pieces": 3033,
+        "used_vehicles": 8,
+        "seconds": 1.1194,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-06",
+        "tasks": 150,
+        "pieces": 3969,
+        "used_vehicles": 11,
+        "seconds": 1.8305,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-07",
+        "tasks": 25,
+        "pieces": 733,
+        "used_vehicles": 3,
+        "seconds": 0.4549,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-08",
+        "tasks": 61,
+        "pieces": 1139,
+        "used_vehicles": 4,
+        "seconds": 1.3326,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-09",
+        "tasks": 10,
+        "pieces": 249,
+        "used_vehicles": 1,
+        "seconds": 0.4547,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-10",
+        "tasks": 60,
+        "pieces": 1073,
+        "used_vehicles": 3,
+        "seconds": 1.2686,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-11",
+        "tasks": 103,
+        "pieces": 2286,
+        "used_vehicles": 7,
+        "seconds": 1.6903,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-12",
+        "tasks": 79,
+        "pieces": 1268,
+        "used_vehicles": 4,
+        "seconds": 1.5387,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-13",
+        "tasks": 67,
+        "pieces": 1187,
+        "used_vehicles": 4,
+        "seconds": 1.3257,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-14",
+        "tasks": 90,
+        "pieces": 1807,
+        "used_vehicles": 6,
+        "seconds": 1.4986,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-15",
+        "tasks": 65,
+        "pieces": 1100,
+        "used_vehicles": 3,
+        "seconds": 1.2307,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-16",
+        "tasks": 15,
+        "pieces": 459,
+        "used_vehicles": 3,
+        "seconds": 0.4228,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-17",
+        "tasks": 63,
+        "pieces": 1142,
+        "used_vehicles": 3,
+        "seconds": 1.2931,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-18",
+        "tasks": 115,
+        "pieces": 2472,
+        "used_vehicles": 7,
+        "seconds": 1.8191,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-19",
+        "tasks": 85,
+        "pieces": 1734,
+        "used_vehicles": 5,
+        "seconds": 1.3098,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-20",
+        "tasks": 64,
+        "pieces": 1289,
+        "used_vehicles": 4,
+        "seconds": 1.0795,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-21",
+        "tasks": 104,
+        "pieces": 2216,
+        "used_vehicles": 7,
+        "seconds": 1.5697,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-22",
+        "tasks": 69,
+        "pieces": 1664,
+        "used_vehicles": 5,
+        "seconds": 1.1436,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-23",
+        "tasks": 10,
+        "pieces": 273,
+        "used_vehicles": 2,
+        "seconds": 0.3181,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-24",
+        "tasks": 66,
+        "pieces": 1375,
+        "used_vehicles": 4,
+        "seconds": 1.1607,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-25",
+        "tasks": 126,
+        "pieces": 2670,
+        "used_vehicles": 7,
+        "seconds": 1.8201,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-26",
+        "tasks": 90,
+        "pieces": 2129,
+        "used_vehicles": 6,
+        "seconds": 1.239,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-27",
+        "tasks": 78,
+        "pieces": 1954,
+        "used_vehicles": 6,
+        "seconds": 1.202,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-28",
+        "tasks": 111,
+        "pieces": 2512,
+        "used_vehicles": 8,
+        "seconds": 1.5524,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-29",
+        "tasks": 72,
+        "pieces": 1479,
+        "used_vehicles": 5,
+        "seconds": 1.1486,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-30",
+        "tasks": 12,
+        "pieces": 356,
+        "used_vehicles": 1,
+        "seconds": 0.4102,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-08-31",
+        "tasks": 86,
+        "pieces": 1652,
+        "used_vehicles": 5,
+        "seconds": 1.8236,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-01",
+        "tasks": 127,
+        "pieces": 3037,
+        "used_vehicles": 9,
+        "seconds": 1.8147,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-02",
+        "tasks": 73,
+        "pieces": 1524,
+        "used_vehicles": 5,
+        "seconds": 1.4864,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-03",
+        "tasks": 80,
+        "pieces": 1599,
+        "used_vehicles": 5,
+        "seconds": 1.1197,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-04",
+        "tasks": 114,
+        "pieces": 2249,
+        "used_vehicles": 7,
+        "seconds": 1.8816,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-05",
+        "tasks": 83,
+        "pieces": 1422,
+        "used_vehicles": 4,
+        "seconds": 1.549,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-06",
+        "tasks": 22,
+        "pieces": 409,
+        "used_vehicles": 2,
+        "seconds": 0.5655,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-07",
+        "tasks": 75,
+        "pieces": 1426,
+        "used_vehicles": 4,
+        "seconds": 1.4244,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-08",
+        "tasks": 137,
+        "pieces": 2835,
+        "used_vehicles": 8,
+        "seconds": 2.0334,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-09",
+        "tasks": 82,
+        "pieces": 1675,
+        "used_vehicles": 5,
+        "seconds": 1.2079,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-10",
+        "tasks": 82,
+        "pieces": 1659,
+        "used_vehicles": 5,
+        "seconds": 1.345,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-11",
+        "tasks": 119,
+        "pieces": 2058,
+        "used_vehicles": 7,
+        "seconds": 2.0075,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-12",
+        "tasks": 81,
+        "pieces": 1554,
+        "used_vehicles": 5,
+        "seconds": 1.3298,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-13",
+        "tasks": 7,
+        "pieces": 125,
+        "used_vehicles": 1,
+        "seconds": 0.3495,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-14",
+        "tasks": 80,
+        "pieces": 1552,
+        "used_vehicles": 4,
+        "seconds": 1.3825,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-15",
+        "tasks": 136,
+        "pieces": 2670,
+        "used_vehicles": 7,
+        "seconds": 1.9584,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-16",
+        "tasks": 78,
+        "pieces": 1620,
+        "used_vehicles": 5,
+        "seconds": 1.1284,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-17",
+        "tasks": 82,
+        "pieces": 1625,
+        "used_vehicles": 5,
+        "seconds": 1.4167,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-18",
+        "tasks": 131,
+        "pieces": 2086,
+        "used_vehicles": 7,
+        "seconds": 2.4878,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-19",
+        "tasks": 84,
+        "pieces": 1460,
+        "used_vehicles": 5,
+        "seconds": 1.5751,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-20",
+        "tasks": 9,
+        "pieces": 288,
+        "used_vehicles": 2,
+        "seconds": 0.3339,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-21",
+        "tasks": 76,
+        "pieces": 1272,
+        "used_vehicles": 4,
+        "seconds": 1.3705,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-22",
+        "tasks": 132,
+        "pieces": 2798,
+        "used_vehicles": 8,
+        "seconds": 1.9646,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-23",
+        "tasks": 81,
+        "pieces": 1728,
+        "used_vehicles": 5,
+        "seconds": 1.3954,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-24",
+        "tasks": 104,
+        "pieces": 2211,
+        "used_vehicles": 7,
+        "seconds": 1.5533,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-25",
+        "tasks": 114,
+        "pieces": 2336,
+        "used_vehicles": 6,
+        "seconds": 1.9387,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-26",
+        "tasks": 75,
+        "pieces": 1676,
+        "used_vehicles": 6,
+        "seconds": 1.1597,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-28",
+        "tasks": 80,
+        "pieces": 1926,
+        "used_vehicles": 6,
+        "seconds": 1.1792,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-29",
+        "tasks": 129,
+        "pieces": 2916,
+        "used_vehicles": 8,
+        "seconds": 1.693,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-09-30",
+        "tasks": 98,
+        "pieces": 2210,
+        "used_vehicles": 7,
+        "seconds": 1.8089,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-01",
+        "tasks": 54,
+        "pieces": 953,
+        "used_vehicles": 3,
+        "seconds": 1.0663,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-02",
+        "tasks": 100,
+        "pieces": 1693,
+        "used_vehicles": 6,
+        "seconds": 1.637,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-03",
+        "tasks": 61,
+        "pieces": 1065,
+        "used_vehicles": 3,
+        "seconds": 1.0329,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-04",
+        "tasks": 42,
+        "pieces": 940,
+        "used_vehicles": 3,
+        "seconds": 0.7951,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-05",
+        "tasks": 60,
+        "pieces": 989,
+        "used_vehicles": 3,
+        "seconds": 1.1283,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-06",
+        "tasks": 110,
+        "pieces": 2360,
+        "used_vehicles": 6,
+        "seconds": 1.7503,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-07",
+        "tasks": 73,
+        "pieces": 1361,
+        "used_vehicles": 4,
+        "seconds": 1.1718,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-08",
+        "tasks": 85,
+        "pieces": 1577,
+        "used_vehicles": 5,
+        "seconds": 1.4693,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-09",
+        "tasks": 113,
+        "pieces": 2097,
+        "used_vehicles": 7,
+        "seconds": 1.7471,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-10",
+        "tasks": 101,
+        "pieces": 1822,
+        "used_vehicles": 5,
+        "seconds": 2.021,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-12",
+        "tasks": 77,
+        "pieces": 1242,
+        "used_vehicles": 4,
+        "seconds": 2.021,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-13",
+        "tasks": 121,
+        "pieces": 2151,
+        "used_vehicles": 6,
+        "seconds": 2.3118,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-14",
+        "tasks": 72,
+        "pieces": 1251,
+        "used_vehicles": 4,
+        "seconds": 1.3475,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-15",
+        "tasks": 92,
+        "pieces": 1594,
+        "used_vehicles": 5,
+        "seconds": 1.8747,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-16",
+        "tasks": 123,
+        "pieces": 1949,
+        "used_vehicles": 6,
+        "seconds": 2.0073,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-17",
+        "tasks": 71,
+        "pieces": 1078,
+        "used_vehicles": 4,
+        "seconds": 1.3694,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-18",
+        "tasks": 6,
+        "pieces": 141,
+        "used_vehicles": 1,
+        "seconds": 0.3644,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-19",
+        "tasks": 77,
+        "pieces": 1299,
+        "used_vehicles": 4,
+        "seconds": 1.4498,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-20",
+        "tasks": 127,
+        "pieces": 2551,
+        "used_vehicles": 7,
+        "seconds": 2.0962,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-21",
+        "tasks": 78,
+        "pieces": 1438,
+        "used_vehicles": 4,
+        "seconds": 1.4766,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-22",
+        "tasks": 102,
+        "pieces": 1873,
+        "used_vehicles": 5,
+        "seconds": 1.9362,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-23",
+        "tasks": 112,
+        "pieces": 1563,
+        "used_vehicles": 5,
+        "seconds": 2.3655,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-24",
+        "tasks": 70,
+        "pieces": 1201,
+        "used_vehicles": 4,
+        "seconds": 1.45,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-25",
+        "tasks": 8,
+        "pieces": 146,
+        "used_vehicles": 1,
+        "seconds": 0.3615,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-26",
+        "tasks": 76,
+        "pieces": 1176,
+        "used_vehicles": 3,
+        "seconds": 1.5228,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-27",
+        "tasks": 129,
+        "pieces": 2103,
+        "used_vehicles": 6,
+        "seconds": 2.2145,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-28",
+        "tasks": 95,
+        "pieces": 1521,
+        "used_vehicles": 5,
+        "seconds": 1.8139,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-29",
+        "tasks": 81,
+        "pieces": 1348,
+        "used_vehicles": 4,
+        "seconds": 1.4598,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-30",
+        "tasks": 106,
+        "pieces": 1672,
+        "used_vehicles": 6,
+        "seconds": 1.7968,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      },
+      {
+        "date": "2026-10-31",
+        "tasks": 69,
+        "pieces": 1055,
+        "used_vehicles": 4,
+        "seconds": 1.2902,
+        "stop_reason": "SEARCH_COMPLETED",
+        "status": "PASS"
+      }
+    ]
+  },
+  "manual_reverse_order": true,
+  "fixture_confirmation_blocked": true,
+  "history_restore": true,
+  "source_files_unchanged": true,
+  "concurrent_reads": {
+    "users": 8,
+    "operations": 320,
+    "p95_seconds": 1.7429,
+    "http_5xx": 0
+  }
+}

@@ -1,0 +1,341 @@
+{
+  "notice": "人工构造道路，仅供业务算法测试，不是高德或真实道路结果，不得作为正式可执行方案。",
+  "fixtures": [
+    {
+      "id": "MIXED_56",
+      "source": "FIXTURE",
+      "timezone": "Asia/Shanghai",
+      "date": "2026-11-11",
+      "warehouse": {
+        "id": "W",
+        "earliest_departure_at": "2026-11-11T08:00:00+08:00"
+      },
+      "vehicles": [
+        {
+          "id": "V10",
+          "warehouse_id": "W",
+          "available": true,
+          "max_pieces": 10,
+          "road_profile_fixture_id": "P1"
+        }
+      ],
+      "quotes": {
+        "KM2": {
+          "mode": "KM",
+          "per_km": "2.00"
+        },
+        "BASE20": {
+          "mode": "BASE_STOPS",
+          "base_price": "20.00",
+          "included_stops": 1,
+          "extra_stop_price": "5.00"
+        }
+      },
+      "tasks": [
+        {
+          "id": "A",
+          "store_id": "A",
+          "warehouse_id": "W",
+          "city": "甲市",
+          "pieces": 6,
+          "quote_id": "KM2",
+          "common_unit_price": "9",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        },
+        {
+          "id": "B",
+          "store_id": "B",
+          "warehouse_id": "W",
+          "city": "乙市",
+          "pieces": 4,
+          "quote_id": "KM2",
+          "common_unit_price": "9",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        },
+        {
+          "id": "C",
+          "store_id": "C",
+          "warehouse_id": "W",
+          "city": "甲市",
+          "pieces": 5,
+          "quote_id": "BASE20",
+          "common_unit_price": "4",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        },
+        {
+          "id": "D",
+          "store_id": "D",
+          "warehouse_id": "W",
+          "city": "乙市",
+          "pieces": 5,
+          "quote_id": "BASE20",
+          "common_unit_price": "4",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        }
+      ],
+      "roads": {
+        "labels": [
+          "W",
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "directed_distance_m": [
+          [
+            0,
+            5000,
+            7000,
+            4000,
+            6000
+          ],
+          [
+            5000,
+            0,
+            3000,
+            6000,
+            8000
+          ],
+          [
+            7000,
+            3000,
+            0,
+            8000,
+            10000
+          ],
+          [
+            4000,
+            6000,
+            8000,
+            0,
+            3000
+          ],
+          [
+            6000,
+            8000,
+            10000,
+            3000,
+            0
+          ]
+        ],
+        "directed_duration_seconds": [
+          [
+            0,
+            900,
+            1260,
+            720,
+            1080
+          ],
+          [
+            900,
+            0,
+            540,
+            1080,
+            1440
+          ],
+          [
+            1260,
+            540,
+            0,
+            1440,
+            1800
+          ],
+          [
+            720,
+            1080,
+            1440,
+            0,
+            540
+          ],
+          [
+            1080,
+            1440,
+            1800,
+            540,
+            0
+          ]
+        ],
+        "restriction_status": "VERIFIED_FIXTURE_ONLY"
+      },
+      "expected": {
+        "baseline_fee": "130.00",
+        "total_fee": "56.00",
+        "routes": [
+          {
+            "vehicle_id": "V10",
+            "sequence": [
+              "A",
+              "B"
+            ],
+            "pieces": 10,
+            "distance_m": 8000,
+            "fee": "16.00",
+            "arrival_at": [
+              "2026-11-11T08:15:00+08:00",
+              "2026-11-11T08:34:00+08:00"
+            ]
+          }
+        ],
+        "common": [
+          "C",
+          "D"
+        ],
+        "unassigned": []
+      }
+    },
+    {
+      "id": "SHARED_40",
+      "source": "FIXTURE",
+      "timezone": "Asia/Shanghai",
+      "date": "2026-11-11",
+      "warehouse": {
+        "id": "W",
+        "earliest_departure_at": "2026-11-11T08:00:00+08:00"
+      },
+      "vehicles": [
+        {
+          "id": "SMALL",
+          "warehouse_id": "W",
+          "available": true,
+          "max_pieces": 10
+        },
+        {
+          "id": "LARGE",
+          "warehouse_id": "W",
+          "available": true,
+          "max_pieces": 20
+        }
+      ],
+      "quotes": {
+        "KM2": {
+          "mode": "KM",
+          "per_km": "2.00"
+        },
+        "BASE20": {
+          "mode": "BASE_STOPS",
+          "base_price": "20.00",
+          "included_stops": 1,
+          "extra_stop_price": "5.00"
+        }
+      },
+      "tasks": [
+        {
+          "id": "A",
+          "store_id": "A",
+          "warehouse_id": "W",
+          "pieces": 10,
+          "quote_id": "KM2",
+          "common_unit_price": "12.00",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        },
+        {
+          "id": "B",
+          "store_id": "B",
+          "warehouse_id": "W",
+          "pieces": 20,
+          "quote_id": "BASE20",
+          "common_unit_price": "5.50",
+          "open_at": "2026-11-11T08:00:00+08:00",
+          "close_at": "2026-11-11T18:00:00+08:00",
+          "latest_arrival_at": "2026-11-11T09:00:00+08:00",
+          "unload_minutes": 10
+        }
+      ],
+      "roads": {
+        "labels": [
+          "W",
+          "A",
+          "B"
+        ],
+        "directed_distance_m": [
+          [
+            0,
+            10000,
+            10000
+          ],
+          [
+            10000,
+            0,
+            5000
+          ],
+          [
+            10000,
+            5000,
+            0
+          ]
+        ],
+        "directed_duration_seconds": [
+          [
+            0,
+            1800,
+            1800
+          ],
+          [
+            1800,
+            0,
+            900
+          ],
+          [
+            1800,
+            900,
+            0
+          ]
+        ],
+        "restriction_status": "VERIFIED_FIXTURE_ONLY",
+        "applies_to_vehicle_ids": [
+          "SMALL",
+          "LARGE"
+        ]
+      },
+      "expected": {
+        "baseline_fee": "230.00",
+        "total_fee": "40.00",
+        "routes": [
+          {
+            "vehicle_id": "SMALL",
+            "sequence": [
+              "A"
+            ],
+            "pieces": 10,
+            "fee": "20.00"
+          },
+          {
+            "vehicle_id": "LARGE",
+            "sequence": [
+              "B"
+            ],
+            "pieces": 20,
+            "fee": "20.00"
+          }
+        ],
+        "common": [],
+        "unassigned": []
+      }
+    }
+  ],
+  "boundary_expectations": {
+    "distance_12500_price_2_5": "31.25",
+    "distance_12345_price_2_5": "30.86",
+    "common_3_price_2_25": "6.75",
+    "base100_included3_extra20_stops2": "100.00",
+    "base100_included3_extra20_stops5": "140.00",
+    "empty_route": "0.00",
+    "zero_price_is_valid": true,
+    "null_price_is_unavailable": true
+  }
+}

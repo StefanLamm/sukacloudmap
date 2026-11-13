@@ -1,0 +1,33 @@
+{
+  "previous_schema": "0002_master_data",
+  "current_schema": "0003_daily_inputs",
+  "backup": "data/suka-pre-s4-20261111-c8e137.db",
+  "existing_record_ids_preserved": true,
+  "before_counts": {
+    "accounts": 1,
+    "shared_records": 0,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0
+  },
+  "after_counts": {
+    "accounts": 1,
+    "shared_records": 0,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0
+  },
+  "business_stage4_counts": {
+    "demand_days": 0,
+    "daily_demands": 0,
+    "input_snapshots": 0,
+    "demand_imports": 0
+  },
+  "qa_accounts_in_business_database": 0,
+  "foreign_key_violations": 0,
+  "browser_snapshot_download_verified": true,
+  "example_content_hash": "03c53012d7a46aef5c5be1b6c3d78649ddc36c00cfd9a5c9fc45fc35c2f153a1",
+  "download_sha256": "aa2884afb1812e0cfa2b29b5d104330aa511acf62ac70abe51830887c0370e4e"
+}

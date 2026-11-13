@@ -1,0 +1,98 @@
+{
+  "version": "0.11.0",
+  "date": "2026-11-12",
+  "schema": "0005_location_tasks",
+  "automated": {
+    "backend_passed": 1345,
+    "backend_new": 55,
+    "frontend_passed": 28,
+    "frontend_new": 14,
+    "typescript": "passed",
+    "production_build": "passed",
+    "backend_warning": "FastAPI/Starlette httpx test-client deprecation only"
+  },
+  "browser": {
+    "isolated_test_database": true,
+    "real_amap_basemap": true,
+    "real_address_search_and_save": true,
+    "marker_drag_coordinates_updated": true,
+    "marker_drag_save_and_map_display": true,
+    "per_vehicle_inline_map": true,
+    "vehicle_map_filter": true,
+    "driving_real_response_geometry": true,
+    "direction_arrows_and_order_markers": true,
+    "reference_confirmation_disabled": true,
+    "template_download": true,
+    "template_dropdowns": "E2:E10001 size / F2:F10001 vehicle type; stop validation and visible arrows"
+  },
+  "road_test": {
+    "budget_limit": 10,
+    "conservatively_counted_attempts": 4,
+    "truck_attempts": 1,
+    "truck_result": "10012",
+    "driving_network_failures": 2,
+    "driving_successes": 1,
+    "public_places_only": true,
+    "synthetic_vehicle_only": true,
+    "meters": 7646,
+    "seconds": 793,
+    "polyline_points": 127,
+    "price_per_km": "5.8",
+    "reference_fee": "44.35",
+    "truck_verified": false,
+    "confirmable": false
+  },
+  "configuration": {
+    "map_provider": "AMAP",
+    "js_ready": true,
+    "web_key_ready": true,
+    "route_mode": "DRIVING",
+    "selected_calls_enabled": true,
+    "job_max_calls": 10,
+    "truck_calls_enabled": false,
+    "env_mode": "0o600"
+  },
+  "preservation": {
+    "main": {
+      "all_tables_unchanged": true,
+      "accounts_unchanged": true,
+      "integrity": "ok"
+    },
+    "trial": {
+      "all_tables_unchanged": true,
+      "accounts_unchanged": true,
+      "integrity": "ok"
+    }
+  },
+  "cleanup": {
+    "qa_port": 8765,
+    "qa_server_stopped": true,
+    "temporary_qa_database_removed": true,
+    "main_port": 8000,
+    "trial_port": 8001,
+    "business_and_trial_running": true
+  },
+  "remaining": [
+    "Real truck restrictions and planned-departure validation",
+    "Business review of store locations, receiving constraints, actual vehicle parameters and common costs",
+    "Deployment environment, PostgreSQL and HTTPS acceptance"
+  ],
+  "artifacts": {
+    "backend-tests.txt": "9f5b566f093794a45b2cdc2101f5d5179b7b54120cb06a07badc9033e609843f",
+    "backups.json": "dd14dbb380a84a218ba7d0c09d67a173410bef983abe4b7f5151c669cec8b1f5",
+    "credential-check.json": "44dce45dfb5fbdeb2058fa4168fd84a4f63020f4c6cdccbce51a18dc0e9d6b25",
+    "drag-location-saved.png": "95724adf80f57ab0f161c13b12e2b72e0722192d9dcda1dfb35bc74a519870a3",
+    "driving-map-detail.png": "bc11f29e11aa5cd0de43bccf3a5e5fe73d8afd21f36edbecbec623b01a8cd651",
+    "final-server-check.json": "bf43f0daa96fbd57e5ab9950ff9e9c7656d7ce01196f26e17f0ebd5e16c80d5e",
+    "frontend-build.txt": "3e7571c45b8bceba95899dc6c8c15449c5118fc203849374d8ac009d30d3f906",
+    "frontend-tests.txt": "104dc6e80d3f70b82bb842025f20c50dd452c261b57a59524185d1f3ac965783",
+    "guide.md": "d8571911117de7b60459180faa8dc8d85f382214ad1ddba52d1e9be92885dd1b",
+    "live-driving-segment.json": "73c73911ad223bd92bb9982ff5bbdc21c618453d7bb8823841cfc5b3dc735ecf",
+    "live-geocoder.json": "07a2d06ba75c8c702aac52a05d1e66c3823a45c91773f02e32d3bacf66dcf65c",
+    "live-road-calls.json": "ae00832992315c1475da8ffa0f0a04e276d87cf05df2fa4aaf16c5d571249481",
+    "live-truck.json": "f698e2f3a5b0bdd559f57a93cdf60af6b9704a95b9c97c53c2f9240f3e0d8902",
+    "template-download-check.json": "32f8a84d58e80045d2d36cb3a46bf638510eb1e3f9f1a0b389abbd4e442cd6ee",
+    "warehouse-amap.png": "f59d5f00c65b27c18db839ce21be9dd70485c21d77be32f485e70010d7a2bc3a",
+    "车辆导入模板.xlsx": "0d2c9795b8907f2cfdecd99cf7b8b5543f88c462745f7bada57459608863f3a2"
+  }
+}

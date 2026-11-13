@@ -1,0 +1,93 @@
+{
+  "result": "PASS",
+  "observed_network": {
+    "initial_connect_timeouts": 2,
+    "later_sdk_http_status": 200,
+    "later_sdk_seconds": [
+      0.55,
+      0.99,
+      0.63
+    ],
+    "key_error_observed": false
+  },
+  "frontend_tests_passed": 50,
+  "production_build": "PASS",
+  "sdk_attempt_timeout_seconds": 45,
+  "auto_retry_count": 1,
+  "retry_delay_seconds": 1,
+  "base_map_timeout_seconds": 45,
+  "regressions": [
+    "slow connection",
+    "shared in-flight request",
+    "late callback isolation",
+    "partial SDK",
+    "bounded retries",
+    "manual retry"
+  ],
+  "browser": {
+    "environment": "isolated local database",
+    "base_map": "PASS",
+    "address_search": "PASS",
+    "selected_position_marker": "PASS",
+    "selection_saved": false,
+    "screenshot": "amap-restored.png"
+  },
+  "http": [
+    {
+      "base": "http://127.0.0.1:8000",
+      "assets": {
+        "/assets/index-BvdfrXEt.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-COv1rT4W.css": 200
+      },
+      "map_proxy_unauthenticated": 401
+    },
+    {
+      "base": "http://127.0.0.1:8001",
+      "assets": {
+        "/assets/index-BvdfrXEt.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-COv1rT4W.css": 200
+      },
+      "map_proxy_unauthenticated": 401
+    },
+    {
+      "base": "http://127.0.0.1:8765",
+      "assets": {
+        "/assets/index-BvdfrXEt.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-COv1rT4W.css": 200
+      },
+      "map_proxy_unauthenticated": 401
+    },
+    {
+      "base": "http://127.0.0.1:8766",
+      "assets": {
+        "/assets/index-BvdfrXEt.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-COv1rT4W.css": 200
+      },
+      "map_proxy_unauthenticated": 401
+    },
+    {
+      "base": "https://determined-politics-diesel-bread.trycloudflare.com",
+      "assets": {
+        "/assets/index-BvdfrXEt.js": 200,
+        "/assets/maps-lfl28lZG.js": 200,
+        "/assets/react-CpBKTXw1.js": 200,
+        "/assets/index-COv1rT4W.css": 200
+      },
+      "map_proxy_unauthenticated": 401
+    }
+  ],
+  "real_road_calls": 0,
+  "business_data_modified": false,
+  "keys_changed": false,
+  "qps_changed": false,
+  "public_url_changed": false,
+  "qa_cleanup": "PASS"
+}

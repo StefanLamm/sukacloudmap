@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "day": "2026-10-31",
+  "version": 3,
+  "tasks": 3,
+  "pieces": 56,
+  "meters": 410826,
+  "fee": "2382.79",
+  "cached_road_segments": 3,
+  "new_external_calls": 0,
+  "manual_delta": "-178.15",
+  "confirmation_blocked": true,
+  "excel_export": true
+}

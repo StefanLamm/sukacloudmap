@@ -1,0 +1,184 @@
+$ vitest run --config vitest.config.ts
+
+ RUN  v5.1.0 /Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/frontend
+
+ ❯ src/master-management.test.tsx (17 tests | 6 failed) 1774ms
+   × undefined 233ms
+   × undefined 101ms
+   × undefined 67ms
+   × undefined 79ms
+   × undefined 88ms
+   × undefined 78ms
+ ❯ src/amap-map.test.tsx (5 tests | 2 failed) 335ms
+   × 高德搜索结果只回填位置字段，POI名称与其他元数据不会传入业务表单 44ms
+   × 地点搜索配额受限时仍保留可用的地址解析候选 27ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/amap-map.test.tsx > 高德搜索结果只回填位置字段，POI名称与其他元数据不会传入业务表单
+AssertionError: expected "vi.fn()" to be called with arguments: [ { address: '合肥市东流路100号', …(4) } ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -3,7 +3,8 @@
+      "address": "合肥市东流路100号",
+      "crs": "GCJ02",
+      "latitude": "31.820824",
+      "location_source": "高德地图地址解析",
+      "longitude": "117.227185",
++     "name": "合肥市人民政府",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ src/amap-map.test.tsx:49:56
+     47|  fireEvent.change(screen.getByLabelText('高德文字搜索位置'),{target:{value:'合肥…
+     48|  fireEvent.click(await screen.findByRole('button',{name:/选用/}));
+     49|  const {name:poiName,...location}=place;expect(change).toHaveBeenCalle…
+       |                                                        ^
+     50|  expect((screen.getByLabelText('高德文字搜索位置') as HTMLInputElement).value)…
+     51| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/amap-map.test.tsx > 地点搜索配额受限时仍保留可用的地址解析候选
+AssertionError: expected "vi.fn()" to be called with arguments: [ { address: '合肥市测试路1号', …(4) } ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -3,7 +3,8 @@
+      "address": "合肥市测试路1号",
+      "crs": "GCJ02",
+      "latitude": "31.8",
+      "location_source": "高德地图地址解析",
+      "longitude": "117.2",
++     "name": "可用地址解析候选",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ src/amap-map.test.tsx:65:56
+     63|  fireEvent.change(screen.getByLabelText('高德文字搜索位置'),{target:{value:'合肥…
+     64|  await screen.findByText(notice);fireEvent.click(await screen.findByRo…
+     65|  const {name:poiName,...location}=place;expect(change).toHaveBeenCalle…
+       |                                                        ^
+     66| });
+     67|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be 'W1名称' // Object.is equality
+
+Expected: "W1名称"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be '自定义新增仓库' // Object.is equality
+
+Expected: "自定义新增仓库"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be '人工修改仓库名称' // Object.is equality
+
+Expected: "人工修改仓库名称"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be 'S1名称' // Object.is equality
+
+Expected: "S1名称"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be '自定义新增门店' // Object.is equality
+
+Expected: "自定义新增门店"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/master-management.test.tsx > undefined
+AssertionError: expected '高德测试POI名称' to be '人工修改门店名称' // Object.is equality
+
+Expected: "人工修改门店名称"
+Received: "高德测试POI名称"
+
+ ❯ src/master-management.test.tsx:55:119
+     53|   if(kind==='stores'&&mode!=='location')fireEvent.change(within(dialog…
+     54|   fireEvent.click(within(dialog).getByRole('button',{name:'选用测试POI'}));
+     55|   if(mode!=='location')expect((within(dialog).getByLabelText(new RegEx…
+       |                                                                                                                       ^
+     56|   expect((within(dialog).getByLabelText(kind==='stores'?/门店地址/:/^地址/) …
+     57|   fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed | 4 passed (6)
+      Tests  8 failed | 32 passed (40)
+   Start at  16:36:48
+   Duration  10.96s (environment 50%, tests 36%, setup 8%, import 4%, transform 2%)
+
+Environment  jsdom was created 6 times · 5.03s total, 50% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+[ELIFECYCLE] Test failed. See above for more details.

@@ -1,0 +1,9 @@
+{
+  "initial_failed": 304,
+  "newly_linked": 80,
+  "still_manual": 224,
+  "states": {
+    "LINKED": 141,
+    "MANUAL": 224
+  }
+}

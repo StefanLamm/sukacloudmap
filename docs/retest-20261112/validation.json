@@ -1,0 +1,99 @@
+{
+  "version": "0.11.1",
+  "date": "2026-11-12",
+  "status": "PASS_WITH_MANUAL_LOCATION_AND_TRUCK_VALIDATION_OUTSTANDING",
+  "backend": {
+    "passed": 1397,
+    "warnings": 1,
+    "warning_type": "Starlette test-client httpx deprecation; no runtime failure",
+    "log": "backend-tests.txt"
+  },
+  "frontend": {
+    "passed": 32,
+    "log": "frontend-tests.txt"
+  },
+  "typecheck_and_production_build": {
+    "status": "PASS",
+    "log": "production-build.txt"
+  },
+  "qps": {
+    "passed": 30,
+    "log": "qps-tests.txt",
+    "web_each_service_per_second": 3,
+    "js_proxy_per_second": 10,
+    "safety_margin_ms": 20,
+    "shared_across_same_host_processes": true,
+    "distinct_business_databases_and_keys_tested": true,
+    "retry_limits": {
+      "address": 3,
+      "road": 2,
+      "road_retries_charge_job_budget": true
+    },
+    "cancel_and_cache_tests": true,
+    "monthly_usage_limit_added": false,
+    "external_road_calls_for_qps_tests": 0
+  },
+  "business_location_result": {
+    "newly_linked": 115,
+    "linked_total": 188,
+    "manual_remaining": 189,
+    "result": "location-result.json"
+  },
+  "full_source_replay": {
+    "status": "PASS",
+    "days": 150,
+    "source_rows": 12185,
+    "positive_tasks": 12183,
+    "pieces": 241806,
+    "stores": 408,
+    "network": "TEST_GRID non-geographic fixed roads",
+    "unassigned_264_rows": "HF in tests only",
+    "log": "historical-replay-all.json"
+  },
+  "real_three_store_driving": {
+    "status": "PASS_REFERENCE_ONLY",
+    "tasks": 3,
+    "pieces": 56,
+    "successful_external_segments": 6,
+    "real_demand_points": 6388,
+    "log": "real-driving-test.json",
+    "http_cache_recalculation": "real-route-http.json",
+    "call_ledger": "live-road-calls.json",
+    "confirmation_blocked": true
+  },
+  "vehicle_file_import": {
+    "status": "PASS",
+    "rows": 50,
+    "invalid_size_blocked_entire_batch": true,
+    "repeat_import_did_not_duplicate": true,
+    "screenshots": [
+      "vehicle-invalid-preview.png",
+      "vehicle-import-done.png"
+    ]
+  },
+  "browser": {
+    "real_map_trajectory": true,
+    "manual_reorder_and_history_restore": true,
+    "native_date_and_unsaved_confirmation": true,
+    "screenshots": [
+      "real-three-store-track.png",
+      "unsaved-date-protection.png"
+    ]
+  },
+  "preservation": {
+    "business_protected_fields": true,
+    "original_trial_all_tables_unchanged": true,
+    "original_workbooks_unchanged": true,
+    "source_evidence": "source-preservation.json",
+    "backups": "business-backups.json",
+    "archives": "archives.json"
+  },
+  "server_check": "final-server-check.json",
+  "credential_scan": "credential-scan.json",
+  "limits": [
+    "Local SQLite acceptance only; deployment environment remains unprovided",
+    "150-day replay validates workflow and constraints with fixed test roads, not actual road optimality",
+    "Only three linked Jiangsu stores exercised real ordinary driving; truck restrictions and departure-time proof remain unverified",
+    "189 business store positions need human confirmation; original coordinates retained"
+  ]
+}

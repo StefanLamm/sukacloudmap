@@ -1,0 +1,30 @@
+{
+  "checked_at_date": "2026-11-11",
+  "scope": "仅交付文件结构、引用完整性、固定输入守恒与两个人工小样例穷举复算；不是产品测试或真实API测试。",
+  "checks": {
+    "rules": 28,
+    "pages": 9,
+    "acceptance_cases": 20,
+    "stage_prompt_sets": 8,
+    "scale_tasks": 800,
+    "scale_pieces": 24000,
+    "scale_vehicles": 50,
+    "mixed_fixture_exhaustive_total": "56.00",
+    "shared_fixture_exhaustive_total": "40.00",
+    "json_parse": "PASS",
+    "document_render": "PASS_VISUAL_REVIEW_26_PAGES",
+    "final_revision_visual_review": {
+      "identical_to_reviewed_pages": 24,
+      "changed_pages_reviewed": [
+        17,
+        19
+      ]
+    },
+    "stage_internal_references": "PASS",
+    "all_json_parse": "PASS"
+  },
+  "product_tests_executed": false,
+  "real_api_requests": 0,
+  "performance_acceptance": "NOT_RUN",
+  "document_sha256": "5392030144ba5b75247a1e8443f8fc449376ea6db5e1bb4a67457292ae0c7b50"
+}

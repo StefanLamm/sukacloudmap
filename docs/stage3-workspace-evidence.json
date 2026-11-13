@@ -1,0 +1,21 @@
+{
+  "schema": "0002_master_data",
+  "business_database_counts": {
+    "accounts": 1,
+    "shared_records": 0,
+    "warehouses": 0,
+    "stores": 0,
+    "vehicles": 0,
+    "quotes": 0,
+    "master_imports": 0
+  },
+  "foreign_key_violations": 0,
+  "screenshots": {
+    "stage3-compatibility.png": "a4847a47d11c3db3cb3f9aa0f83a90a22a5be80d22fdec98807a2aaa43473528",
+    "stage3-import-errors.png": "715ce82452e3755b6bd692cf9997d22efed82177305a35a0064b84cef7ca229f",
+    "stage3-quote-versions.png": "aa0753d0ed6079f89ad371a374305f4af3c56b270eed66b15ce4af25947760f4",
+    "stage3-stores.png": "9a673454a1d28ffff94e59bec5d7bd84252a5eb0e77e6dda805be49c48a9dffe",
+    "stage3-vehicles.png": "e0683876f056cf4a689af4e8365c754fe9ee749bb47744205f557c4dfd3fe72c"
+  },
+  "temporary_qa_folder_removed": true
+}

@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "backend_tests": 1451,
+  "frontend_tests": 65,
+  "build": "PASS",
+  "schema": "0006_group_workflows",
+  "public_url": "https://estates-feeling-lane-incorporate.trycloudflare.com",
+  "migration_validation": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/feature-request-20261112/release-194013/validation.json",
+  "migration_summary": {
+    "business": {
+      "schema": "0006_group_workflows",
+      "groups": 1,
+      "integrity": "ok",
+      "foreign_keys": "PASS"
+    },
+    "trial": {
+      "schema": "0006_group_workflows",
+      "groups": 150,
+      "integrity": "ok",
+      "foreign_keys": "PASS"
+    },
+    "history": {
+      "schema": "0006_group_workflows",
+      "groups": 150,
+      "integrity": "ok",
+      "foreign_keys": "PASS"
+    },
+    "driving": {
+      "schema": "0006_group_workflows",
+      "groups": 1,
+      "integrity": "ok",
+      "foreign_keys": "PASS"
+    }
+  },
+  "browser_checks": [
+    "group creation",
+    "manual demand",
+    "automatic snapshot",
+    "province/city/district cascade",
+    "regional quote save"
+  ],
+  "test_data": "isolated QA database, cleaned after verification",
+  "real_road_calls": 0,
+  "screenshots": [
+    "group-demand.png",
+    "region-quote.png"
+  ],
+  "road_scope": "ordinary driving reference remains non-executable",
+  "optimization_scope": "fixed manual allocation; exhaustive small routes, bounded search for larger routes"
+}

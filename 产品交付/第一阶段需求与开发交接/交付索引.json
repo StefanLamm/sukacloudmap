@@ -1,0 +1,45 @@
+{
+  "title": "苏咔云图第一阶段需求与开发交接",
+  "baseline_date": "2026-11-11",
+  "entry_document": "苏咔云图产品开发交接方案.docx",
+  "source_document": "方案/苏咔云图产品经理工作方案与提示词.docx",
+  "source_sha256": "f456aa38f37080e6df35ea4b686a0bfa80d34bb50a768bf7fd11205a95925ff0",
+  "scope": "产品经理交付；未编写应用代码，未执行产品验收或真实API联调。",
+  "files": [
+    {
+      "file": "交付自检.json",
+      "size_bytes": 961,
+      "sha256": "f5019c9e813e015a0dc9615d05e78698e2d13c4c4af024c76179f3c5b3664b58"
+    },
+    {
+      "file": "固定道路样例.json",
+      "size_bytes": 7710,
+      "sha256": "5ddae83ebd24177b0cee125d9442580666ccf47762f74eed78b228fc7b0e0299"
+    },
+    {
+      "file": "苏咔云图产品开发交接方案.docx",
+      "size_bytes": 71416,
+      "sha256": "5392030144ba5b75247a1e8443f8fc449376ea6db5e1bb4a67457292ae0c7b50"
+    },
+    {
+      "file": "规模固定数据集.json",
+      "size_bytes": 459375,
+      "sha256": "41828ce76d832edd5c99f2ba130b147706132da96cd7d70a7f90bf55d42c2609"
+    },
+    {
+      "file": "阶段任务.json",
+      "size_bytes": 20070,
+      "sha256": "dfc87cde77b20b49ce2e741432f5782d88c58056e71853627b88c8ab7514d6fd"
+    },
+    {
+      "file": "需求追踪.json",
+      "size_bytes": 21621,
+      "sha256": "7d36b95edbd1a817d2a736526d15ab64583cd86253d3908357983c608bc09821"
+    },
+    {
+      "file": "验收用例.json",
+      "size_bytes": 11016,
+      "sha256": "007bc1fba06f57e03531bb87e75c35d51867b6e41675c74ec5dce3939ad9fab8"
+    }
+  ]
+}

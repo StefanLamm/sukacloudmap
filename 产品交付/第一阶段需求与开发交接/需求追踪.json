@@ -1,0 +1,525 @@
+{
+  "baseline_date": "2026-11-11",
+  "rules": [
+    {
+      "id": "R01",
+      "title": "内部账号与共享空间",
+      "requirement": "管理员建号、停用、重置；账号密码登录和退出；所有登录人员共用业务资料。",
+      "source_section": "3.1、3.2、阶段2",
+      "pages": "P01/P09",
+      "module": "账号与会话",
+      "acceptance": "AC01/AC02",
+      "first_stage": 2
+    },
+    {
+      "id": "R02",
+      "title": "仓库与每日发车",
+      "requirement": "仓库保存位置及坐标系；每天每仓设置最早发车时刻，车辆不得提前出发。",
+      "source_section": "2.1、2.5",
+      "pages": "P02/P06",
+      "module": "仓库与日配置",
+      "acceptance": "AC11/AC20",
+      "first_stage": 3
+    },
+    {
+      "id": "R03",
+      "title": "稳定门店与匹配",
+      "requirement": "编号稳定；名称重名、未知或无法唯一匹配必须返回来源行，不猜测门店。",
+      "source_section": "3.1、3.3",
+      "pages": "P03/P06",
+      "module": "门店与导入",
+      "acceptance": "AC03",
+      "first_stage": 3
+    },
+    {
+      "id": "R04",
+      "title": "整票与仓库快照",
+      "requirement": "配送日、出货仓、门店定义一票；整票选择共配或由一辆专车送达，不拆票、不混方式。",
+      "source_section": "2.1",
+      "pages": "P06/P07",
+      "module": "需求与分配",
+      "acceptance": "AC05/AC19/AC20",
+      "first_stage": 4
+    },
+    {
+      "id": "R05",
+      "title": "件数容量",
+      "requirement": "货物同规格；车辆容量为最大件数正整数，不增加日需求重量、体积或续航字段。",
+      "source_section": "2.2",
+      "pages": "P04/P06",
+      "module": "车辆与约束",
+      "acceptance": "AC05/AC06",
+      "first_stage": 3
+    },
+    {
+      "id": "R06",
+      "title": "真实共享车池",
+      "requirement": "按当天归仓和可用性使用车辆；每车每日最多一条线路，各报价组共享车池。50辆是全系统规模基准。",
+      "source_section": "2.2、2.6",
+      "pages": "P04/P07",
+      "module": "车辆分配",
+      "acceptance": "AC06/AC16/AC20",
+      "first_stage": 6
+    },
+    {
+      "id": "R07",
+      "title": "单程与空线",
+      "requirement": "路线从出货仓至最后一家店，不算返仓；空线不计费也不占车。",
+      "source_section": "2.2、2.3",
+      "pages": "P07",
+      "module": "道路与费用",
+      "acceptance": "AC08/AC09/AC16",
+      "first_stage": 5
+    },
+    {
+      "id": "R08",
+      "title": "车辆道路参数",
+      "requirement": "车牌、颜色、车型、车长宽高、核定载重、满载总重、轴数分别维护；首版按维护的满载参数保守算路。",
+      "source_section": "2.2",
+      "pages": "P04/P07",
+      "module": "货车适配器",
+      "acceptance": "AC14/AC15",
+      "first_stage": 5
+    },
+    {
+      "id": "R09",
+      "title": "完整报价兼容",
+      "requirement": "同仓且完整计费模式和参数一致才可合线；可跨城市、跨方案名称，不同参数不能混线。",
+      "source_section": "2.3",
+      "pages": "P03/P05/P07",
+      "module": "报价签名",
+      "acceptance": "AC07/AC16",
+      "first_stage": 3
+    },
+    {
+      "id": "R10",
+      "title": "每店当前报价",
+      "requirement": "每店引用一份当前有效专车方案；城市仅作默认模板，不在未约定报价间自动择低。",
+      "source_section": "2.3",
+      "pages": "P03/P05",
+      "module": "报价版本",
+      "acceptance": "AC07/AC18",
+      "first_stage": 3
+    },
+    {
+      "id": "R11",
+      "title": "公里计费",
+      "requirement": "线路道路米数除以1000再乘公里单价；不整公里进位，用实际分配车辆道路结果。",
+      "source_section": "2.2、2.3",
+      "pages": "P05/P07",
+      "module": "计费引擎",
+      "acceptance": "AC08/AC15",
+      "first_stage": 5
+    },
+    {
+      "id": "R12",
+      "title": "起送加串店",
+      "requirement": "起送价加超出包含门店数的独立门店数乘串店费；包含数为每份报价的非负整数。",
+      "source_section": "2.3",
+      "pages": "P05/P07",
+      "module": "计费引擎",
+      "acceptance": "AC09",
+      "first_stage": 5
+    },
+    {
+      "id": "R13",
+      "title": "共配费用与时序",
+      "requirement": "每店件数乘本店共配单价，无其他收费；已有共配报价即视为按时送达，不作专车时序校验。",
+      "source_section": "2.4",
+      "pages": "P03/P07",
+      "module": "共配分配",
+      "acceptance": "AC08/AC12",
+      "first_stage": 5
+    },
+    {
+      "id": "R14",
+      "title": "缺价与零价",
+      "requirement": "NULL仅排除相应方式，显式0有效；两种方式不可用时列未分配原因。",
+      "source_section": "2.4",
+      "pages": "P03/P05/P07",
+      "module": "候选可用性",
+      "acceptance": "AC05/AC10/AC14",
+      "first_stage": 3
+    },
+    {
+      "id": "R15",
+      "title": "精度与汇总",
+      "requirement": "精确小数计价，各线路及各共配门店小计四舍五入至分后汇总；不重复累加线路费。油费、通行费不自动另加。",
+      "source_section": "2.3、2.4",
+      "pages": "P07/P08",
+      "module": "费用与导出",
+      "acceptance": "AC08/AC09/AC19",
+      "first_stage": 5
+    },
+    {
+      "id": "R16",
+      "title": "日期与跨日营业",
+      "requirement": "统一北京时间并保存日期；经营时间为收货时间，跨日结束日期或跨日标记必须明确。",
+      "source_section": "2.1",
+      "pages": "P02/P03/P06",
+      "module": "时间规范",
+      "acceptance": "AC11/AC13",
+      "first_stage": 3
+    },
+    {
+      "id": "R17",
+      "title": "逐站时间递推",
+      "requirement": "到店为前站离店加行驶；提前等待开门；开始卸货为到店与开门较晚者；离店为开始卸货加卸货时长。",
+      "source_section": "2.5",
+      "pages": "P07",
+      "module": "时序引擎",
+      "acceptance": "AC11",
+      "first_stage": 5
+    },
+    {
+      "id": "R18",
+      "title": "到店与关门边界",
+      "requirement": "实际到店不晚于最晚到店；开始卸货须在经营时间内。允许关门后卸完，后店按实际离店继续计算。",
+      "source_section": "2.5",
+      "pages": "P07",
+      "module": "时间约束",
+      "acceptance": "AC12/AC13",
+      "first_stage": 5
+    },
+    {
+      "id": "R19",
+      "title": "优化优先级",
+      "requirement": "先完整覆盖并满足硬约束，再降低费用；不以漏掉高费用任务改善指标。",
+      "source_section": "2.6",
+      "pages": "P07",
+      "module": "优化与独立检查",
+      "acceptance": "AC05/AC16/AC20",
+      "first_stage": 6
+    },
+    {
+      "id": "R20",
+      "title": "基线与确定性",
+      "requirement": "无人工强制且全部可共配时自动方案不高于全共配；同价少车、再短道路；相同输入及道路快照可复现。",
+      "source_section": "2.6",
+      "pages": "P07",
+      "module": "优化日志",
+      "acceptance": "AC16/AC20",
+      "first_stage": 6
+    },
+    {
+      "id": "R21",
+      "title": "预算与求解状态",
+      "requirement": "800店只承诺找到的较低费用可行解；预算到达保留最好完整可行解；未找到完整方案不等于已证明无解。",
+      "source_section": "2.6",
+      "pages": "P07",
+      "module": "异步规划任务",
+      "acceptance": "AC16/AC20",
+      "first_stage": 6
+    },
+    {
+      "id": "R22",
+      "title": "Excel预览与整批提交",
+      "requirement": "xlsx每日只需门店名称和件数，编号可选；非负整数、零跳过、同店重复汇总；任一错误整批不提交。",
+      "source_section": "3.3",
+      "pages": "P06",
+      "module": "导入事务",
+      "acceptance": "AC03",
+      "first_stage": 4
+    },
+    {
+      "id": "R23",
+      "title": "重传替换与失效提示",
+      "requirement": "先展示替换前后店数件数，再替换选定日期；不累计。新导入使已有方案出现输入已变更提示。",
+      "source_section": "3.3",
+      "pages": "P06/P07/P08",
+      "module": "输入修订号",
+      "acceptance": "AC04/AC18",
+      "first_stage": 4
+    },
+    {
+      "id": "R24",
+      "title": "人工修改与统一校验",
+      "requirement": "换方式、换车、改顺序后重算费用和时间；可更贵，不静默撤销；冲突可存草稿但不能确认可执行。",
+      "source_section": "2.6、阶段7",
+      "pages": "P07",
+      "module": "方案编辑与确认",
+      "acceptance": "AC17",
+      "first_stage": 7
+    },
+    {
+      "id": "R25",
+      "title": "不可变历史与并发",
+      "requirement": "保存输入、车辆、报价和道路依据快照；主数据变化不改历史；重算、调整保存新版本，检查并发冲突。",
+      "source_section": "3.3",
+      "pages": "P07/P08",
+      "module": "版本与乐观锁",
+      "acceptance": "AC18",
+      "first_stage": 7
+    },
+    {
+      "id": "R26",
+      "title": "真实货车与失败回退",
+      "requirement": "普通汽车、直线和固定均速不能代替正式货车道路；无法确认通行的候选不可标已验证；失败回退共配或列异常。",
+      "source_section": "4、阶段5",
+      "pages": "P07",
+      "module": "道路服务",
+      "acceptance": "AC14/AC15",
+      "first_stage": 5
+    },
+    {
+      "id": "R27",
+      "title": "地图与执行清单",
+      "requirement": "仓店图标不同、有图例；线路分色，地图与门店联动；共配无虚构路线。Excel与所选版本守恒并防文本公式执行。",
+      "source_section": "3.2、阶段7",
+      "pages": "P07/P08",
+      "module": "地图与导出",
+      "acceptance": "AC19",
+      "first_stage": 7
+    },
+    {
+      "id": "R28",
+      "title": "规模与上线证据",
+      "requirement": "4仓800店24000件全系统50车；固定道路与真实API分开，热缓存20次P95、冷缓存至少3次，先冻结阈值与预算。",
+      "source_section": "8.1、8.2",
+      "pages": "P06/P07/P08",
+      "module": "性能与运维",
+      "acceptance": "AC20",
+      "first_stage": 8
+    }
+  ],
+  "pages": [
+    {
+      "id": "P01",
+      "name": "登录",
+      "actions": "内部账号、密码、登录、退出。未登录访问业务页回登录，接口返回401；错误密码不泄露账号是否存在。",
+      "states": "空表单、认证失败、账号停用、会话过期；成功进入配送日工作台。"
+    },
+    {
+      "id": "P02",
+      "name": "仓库",
+      "actions": "维护编号、名称、地址、坐标及来源；按日期设置各仓最早发车时间。",
+      "states": "新增、编辑、缺位置、跨日时间；当天无任务仓仍可保存设置。"
+    },
+    {
+      "id": "P03",
+      "name": "门店",
+      "actions": "维护稳定编号、名称、地址坐标、出货仓、经营时间、卸货分钟、最晚到店、专车方案及共配价；手工或xlsx导入并地图校正。",
+      "states": "重名可存在但导入需编号消歧；未定位、缺单项报价只显示方式受限，双缺报价显示风险。"
+    },
+    {
+      "id": "P04",
+      "name": "车辆",
+      "actions": "维护唯一车牌、最大件数、归仓及按日可用性；维护独立货车档案。",
+      "states": "停用、当天不可用、货车资料不全；容量与载重分栏，不增加单车价格倍率。"
+    },
+    {
+      "id": "P05",
+      "name": "报价方案",
+      "actions": "两种计价表单按模式显示有效字段；查看生效版本和完整参数签名；门店明确引用。",
+      "states": "草稿、有效、被引用；更价生成版本，不改历史。空与0采用不同显示。"
+    },
+    {
+      "id": "P06",
+      "name": "每日需求",
+      "actions": "先选日期与发车时间，下载xlsx模板、上传、列匹配、预览汇总、查看来源行、查看替换差异，再确认提交。",
+      "states": "空需求、校验错误、可提交、并发过期；预览注明重复行合并及零件数跳过。"
+    },
+    {
+      "id": "P07",
+      "name": "配送规划",
+      "actions": "核对车辆后生成；显示任务总数、总件数、总费用、全共配基线、线路、共配和未分配；地图表格联动。",
+      "states": "排队、运行、预算结束、完整可行、未找到完整方案、道路待验证、输入已变更、编辑冲突草稿、已确认。"
+    },
+    {
+      "id": "P08",
+      "name": "方案历史",
+      "actions": "按配送日和版本查看只读快照、输入差异、计算依据与操作者；选择版本导出执行清单。",
+      "states": "无历史、历史完整、旧输入、草稿；查看旧版本不触发重新计算。"
+    },
+    {
+      "id": "P09",
+      "name": "账号管理",
+      "actions": "管理员创建、停用、重置内部账号；普通业务账号不可见入口且接口拒绝访问。",
+      "states": "创建失败、停用成功、密码已重置；停用或重置使原会话失效。"
+    }
+  ],
+  "field_dictionary": [
+    {
+      "entity": "warehouse",
+      "fields": "id / code / name",
+      "contract": "稳定ID、唯一业务编号、名称；引用使用ID。"
+    },
+    {
+      "entity": "warehouse",
+      "fields": "address / longitude / latitude / crs / location_source",
+      "contract": "地址、经纬度、坐标系和校正来源；坐标不得交换；规划使用经核实的高德坐标。"
+    },
+    {
+      "entity": "warehouse_day",
+      "fields": "delivery_date / warehouse_id / earliest_departure_at / revision",
+      "contract": "日期及北京时间完整时刻；同日同仓唯一；保存并发修订号。"
+    },
+    {
+      "entity": "store",
+      "fields": "id / code / name / city / warehouse_id",
+      "contract": "稳定ID和唯一编号；名称非唯一；城市不进入合线签名。"
+    },
+    {
+      "entity": "store",
+      "fields": "address / longitude / latitude / crs / location_source",
+      "contract": "保留原位置和转换依据；失定位阻止该店正式专车算路。"
+    },
+    {
+      "entity": "store",
+      "fields": "business_open / business_close / explicit_day_offset",
+      "contract": "营业时间模板和明确跨日标记，输入快照固化为带日期的起止时刻；不开第二套收货时间。"
+    },
+    {
+      "entity": "store",
+      "fields": "unload_minutes / latest_arrival_at",
+      "contract": "卸货分钟非负；最晚到店为完整日期时间，允许为空表示未配置该限制。"
+    },
+    {
+      "entity": "store",
+      "fields": "dedicated_quote_version_id / common_unit_price",
+      "contract": "专车引用可空；共配单价为非负精确小数或NULL，0有效；按日快照固化。"
+    },
+    {
+      "entity": "vehicle",
+      "fields": "id / plate / max_pieces",
+      "contract": "稳定ID；规范化后的车牌唯一；最大件数正整数。"
+    },
+    {
+      "entity": "vehicle_day",
+      "fields": "delivery_date / vehicle_id / warehouse_id / available / revision",
+      "contract": "按日归仓和可用性；首次进入当天按主档生成，可调整后冻结。"
+    },
+    {
+      "entity": "truck_profile",
+      "fields": "size / cartype / plate_color",
+      "contract": "车型大小、车辆类型、车牌颜色分字段；服务枚举在适配记录核实，不互相代替。"
+    },
+    {
+      "entity": "truck_profile",
+      "fields": "length_m / width_m / height_m / rated_load_t / full_gross_t / axles",
+      "contract": "真实车辆尺寸、核载、满载总重、轴数；不根据件数推重量；单位写入字段名。"
+    },
+    {
+      "entity": "quote_version",
+      "fields": "quote_id / version / name / mode / effective_from",
+      "contract": "模式为KM或BASE_STOPS；名称和版本不进入兼容签名。"
+    },
+    {
+      "entity": "quote_version",
+      "fields": "per_km / base_price / included_stops / extra_stop_price",
+      "contract": "仅使用所属模式的字段；价格非负精确小数，包含店数非负整数；无效字段不能暗中参与计价。"
+    },
+    {
+      "entity": "quote_version",
+      "fields": "compatibility_signature",
+      "contract": "按模式与全部有效价格参数规范化得到；1、1.0、1.00相等；排线分组再加入仓库ID。"
+    },
+    {
+      "entity": "import_batch",
+      "fields": "id / date / file_hash / source_rows / preview_revision / operator",
+      "contract": "来源文件摘要与行号；预览结果绑定主数据修订，过期需重新预览。"
+    },
+    {
+      "entity": "daily_demand",
+      "fields": "date / warehouse_id / store_id / pieces / input_revision",
+      "contract": "同日同仓同店唯一，件数为正整数；原始零行只留批次记录。"
+    },
+    {
+      "entity": "input_snapshot",
+      "fields": "id / content_hash / date / demand / stores / warehouses / vehicles / quotes",
+      "contract": "保存所有使用值与主数据版本，不只留可变外键；不含账号密码、Key或安全密钥。"
+    },
+    {
+      "entity": "road_evidence",
+      "fields": "provider / endpoint_version / request_hash / vehicle_profile / depart_at",
+      "contract": "记录真实车辆和该段出发时刻、起终点及策略；请求参数脱敏，保留许可允许的数据。"
+    },
+    {
+      "entity": "road_evidence",
+      "fields": "distance_m / duration_seconds / restriction_status / source / fetched_at",
+      "contract": "source严格区分FIXTURE与REAL_API；成功响应不自动等于通行已验证。"
+    },
+    {
+      "entity": "planning_job",
+      "fields": "snapshot_id / state / budget / seed / algorithm_version / stop_reason",
+      "contract": "任务绑定快照；记录确定性工作预算、外部调用预算和取消、失败、停止原因。"
+    },
+    {
+      "entity": "plan_version",
+      "fields": "id / date / version / parent_id / input_snapshot_id / road_snapshot / status",
+      "contract": "新算和人工修改生成新版本；历史不可变；并发检查expected_revision。"
+    },
+    {
+      "entity": "route",
+      "fields": "id / vehicle_id / warehouse_id / quote_signature / total_pieces / distance_m / fee",
+      "contract": "一车一线，空线删除；道路和费用绑定实际车辆，费用是线路级。"
+    },
+    {
+      "entity": "stop",
+      "fields": "route_id / sequence / task_id / arrival_at / service_start_at / unload_end_at / depart_at",
+      "contract": "独立门店按序计数；四个时刻均保存；首段从仓库发车起算。"
+    },
+    {
+      "entity": "assignment",
+      "fields": "task_id / mode / route_id / common_fee / reason_codes",
+      "contract": "mode为DEDICATED、COMMON或UNASSIGNED；专车门店不复制整线费用。"
+    },
+    {
+      "entity": "validation_report",
+      "fields": "plan_hash / checker_version / violations / totals / checked_at",
+      "contract": "独立检查覆盖、件数、车辆、仓库、报价、时序、道路和金额；确认绑定相同plan_hash。"
+    },
+    {
+      "entity": "account / session",
+      "fields": "id / password_hash / status / is_admin / session_hash / auth_revision",
+      "contract": "密码仅存散列；会话凭据不明文落库；重置、停用递增认证修订并失效会话。"
+    },
+    {
+      "entity": "audit_event",
+      "fields": "actor_id / action / entity_id / before_revision / after_revision / occurred_at",
+      "contract": "记录关键修改与版本，不记录密码及地图凭证。"
+    }
+  ],
+  "api_draft": [
+    {
+      "route": "POST /auth/login；POST /auth/logout",
+      "contract": "会话登录与退出；仅登录允许匿名。"
+    },
+    {
+      "route": "POST /accounts；PATCH /accounts/{id}；POST /accounts/{id}/reset-password",
+      "contract": "仅管理员；重置与停用同时使旧会话无效。"
+    },
+    {
+      "route": "GET/POST/PATCH /warehouses、/stores、/vehicles、/quotes",
+      "contract": "共享主数据；写操作携带expected_revision，报价更新产生版本。"
+    },
+    {
+      "route": "PUT /delivery-days/{date}/settings",
+      "contract": "仓库发车与车辆当日设置；日期与修订号同时校验。"
+    },
+    {
+      "route": "POST /imports/preview",
+      "contract": "上传xlsx并传配送日；返回preview_id、errors、aggregates、before/after及配置缺失提示。"
+    },
+    {
+      "route": "POST /imports/{preview_id}/commit",
+      "contract": "仅无错误且修订未变可提交；单事务替换整日需求；重复提交返回同批次结果。"
+    },
+    {
+      "route": "POST /planning-jobs；GET /planning-jobs/{id}",
+      "contract": "绑定输入快照和预算，返回202及任务ID；轮询状态、最好可行结果和道路调用记录。"
+    },
+    {
+      "route": "POST /plans/{id}/adjust；POST /plans/{id}/validate",
+      "contract": "提交显式改动，生成子版本并用统一引擎计费与检查，不撤销人工选择。"
+    },
+    {
+      "route": "POST /plans/{id}/confirm",
+      "contract": "当前输入、无冲突、全部覆盖且正式道路已验证才可确认；版本冲突409。"
+    },
+    {
+      "route": "GET /plans?date=…；GET /plans/{id}；GET /plans/{id}/export",
+      "contract": "读取所选版本；导出元信息、线路、逐店、共配、费用和异常。"
+    }
+  ]
+}

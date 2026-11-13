@@ -1,0 +1,32 @@
+{
+  "status": "PASS_LOCAL",
+  "environment": "temporary SQLite, 127.0.0.1:8765, production frontend build",
+  "checks": [
+    "actual_job_submitted_and_polled",
+    "common_only_draft_22_50",
+    "confirmation_appended_v2_preserved_v1",
+    "excel_download_selected_v2",
+    "fixture_56_routes_and_arrivals",
+    "fixture_40_two_real_pool_vehicles",
+    "manual_overload_quote_conflict_choices_preserved",
+    "incomplete_fee_is_labelled",
+    "all_common_manual_increase_74",
+    "historical_v1_restored_as_v3",
+    "map_three_points_no_fake_road",
+    "console_no_errors"
+  ],
+  "screenshots": [
+    "stage5-8-review.png",
+    "stage5-8-fixed-56.png",
+    "stage5-8-fixed-40.png",
+    "stage5-8-manual-conflict.png",
+    "stage5-8-business-map.png"
+  ],
+  "download": "docs/examples/stage5-8-browser-export.xlsx",
+  "qa_service_stopped": true,
+  "qa_database_removed": true,
+  "actual_data_used_for_testing": false,
+  "actual_app_review_url": "http://127.0.0.1:8000",
+  "original_account_unchanged": true,
+  "human_review_status": "WAITING_FOR_FEEDBACK"
+}

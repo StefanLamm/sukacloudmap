@@ -1,0 +1,23 @@
+{
+  "before": {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/retest-20261112/business-before-140346.db",
+    "schema": "0005_location_tasks",
+    "sha256": "28fe6d3486f22e2ff485bb52a679e7373843624b71b5cea6d0a2aaeaff419b1d",
+    "integrity": "ok"
+  },
+  "after": {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/retest-20261112/business-after.db",
+    "schema": "0005_location_tasks",
+    "sha256": "9a0b456068da71ec74e9fba797721eedfa98ded9e0679ff2bcd0b5c1c1be70f3",
+    "integrity": "ok"
+  },
+  "final": {
+    "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/suka.db",
+    "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/retest-20261112/business-final.db",
+    "schema": "0005_location_tasks",
+    "sha256": "ef45acb68d395c06c161fdb6c29492508bbcacc6746b99fdc2d4a973c6033a07",
+    "integrity": "ok"
+  }
+}

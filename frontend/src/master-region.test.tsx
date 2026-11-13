@@ -1,0 +1,31 @@
+import React from 'react';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import {beforeEach,expect,it,vi} from 'vitest';
+import {MasterDataPage,Catalog} from './master-data';
+const mock=vi.hoisted(()=>({api:vi.fn()}));
+vi.mock('./api',()=>({api:mock.api,ApiError:class extends Error{}}));
+vi.mock('./location-map',()=>({LocationMap:()=> <div>地图</div>}));
+const tree=[{code:'340000',name:'安徽省',children:[{code:'340100',name:'合肥市',children:[{code:'340104',name:'蜀山区'}]}]},{code:'320000',name:'江苏省',children:[{code:'320800',name:'淮安市',children:[{code:'320803',name:'淮安区'}]}]}];
+let data:Catalog;
+beforeEach(()=>{data={master_revision:1,warehouses:[{id:'W1',revision:1,code:'HF',name:'合肥仓'},{id:'W2',revision:1,code:'HA',name:'淮安仓'}],quotes:[],vehicles:[],stores:[{id:'S1',revision:1,code:'S1',name:'合肥门店',province:'安徽省',city:'合肥',district:'蜀山区',warehouse_id:'W1',business_open:'08:00',business_close:'18:00',close_day_offset:0,unload_minutes:20},{id:'S2',revision:1,code:'S2',name:'淮安门店',province:'江苏省',city:'淮安市',district:'淮安区',warehouse_id:'W2',business_open:'08:00',business_close:'18:00',close_day_offset:0,unload_minutes:20}]};
+ mock.api.mockReset();mock.api.mockImplementation(async(path:string,method='GET',body?:any)=>{if(path==='/master-data/management')return structuredClone(data);if(path==='/master-data/regions')return {items:tree};if(path==='/quotes'&&method==='POST'){data.quotes.push({id:'Q1',revision:1,...body,latest_version:{...body,version:1}});return data.quotes[0];}if(path.endsWith('/bulk-update'))return {updated:body.items.length};throw Error(path);});});
+it('特殊地区报价通过省市区级联选择并保存一次性附加费',async()=>{
+ render(<MasterDataPage kind="quotes" notify={()=>{}}/>);fireEvent.click(await screen.findByRole('button',{name:'新增报价方案'}));
+ const dialog=screen.getByRole('dialog');fireEvent.change(within(dialog).getByLabelText(/稳定编号/),{target:{value:'Q1'}});fireEvent.change(within(dialog).getByLabelText(/方案名称/),{target:{value:'特殊地区报价'}});
+ fireEvent.change(within(dialog).getByLabelText(/计费模式/),{target:{value:'KM_REGION'}});
+ await waitFor(()=>expect(within(dialog).getByRole('option',{name:'安徽省'})).toBeTruthy());
+ fireEvent.change(within(dialog).getByLabelText('特殊地区省份'),{target:{value:'340000'}});fireEvent.change(within(dialog).getByLabelText('特殊地区城市'),{target:{value:'340100'}});fireEvent.change(within(dialog).getByLabelText('特殊地区区县'),{target:{value:'340104'}});
+ fireEvent.change(within(dialog).getByLabelText('一次性增加金额（元）'),{target:{value:'80'}});fireEvent.click(within(dialog).getByRole('button',{name:'添加所选城市 / 区县'}));
+ fireEvent.change(within(dialog).getByLabelText(/每公里单价/),{target:{value:'5.8'}});fireEvent.click(within(dialog).getByRole('button',{name:'保存资料'}));
+ await waitFor(()=>expect(mock.api.mock.calls.find(c=>c[0]==='/quotes'&&c[1]==='POST')).toBeTruthy());
+ expect(mock.api.mock.calls.find(c=>c[0]==='/quotes'&&c[1]==='POST')![2]).toMatchObject({mode:'KM_REGION',per_km:'5.8',region_surcharge:{amount:'80',targets:[{province_name:'安徽省',city_name:'合肥市',district_name:'蜀山区',district_code:'340104'}]}});
+});
+it('省市区筛选兼容旧城市简称，批改仅提交勾选字段和修订号',async()=>{
+ render(<MasterDataPage kind="stores" notify={()=>{}}/>);await screen.findByRole('checkbox',{name:'选择S1'});await waitFor(()=>expect(screen.getByRole('option',{name:'安徽省'})).toBeTruthy());
+ fireEvent.change(screen.getByLabelText('筛选省份'),{target:{value:'340000'}});fireEvent.change(screen.getByLabelText('筛选城市'),{target:{value:'340100'}});fireEvent.change(screen.getByLabelText('筛选区县'),{target:{value:'340104'}});
+ expect(screen.getByRole('checkbox',{name:'选择S1'})).toBeTruthy();expect(screen.queryByRole('checkbox',{name:'选择S2'})).toBeNull();
+ fireEvent.click(screen.getByRole('checkbox',{name:'选择S1'}));fireEvent.click(screen.getByRole('button',{name:'批量修改'}));const dialog=screen.getByRole('dialog');
+ fireEvent.click(within(dialog).getByRole('checkbox',{name:'修改出货仓库'}));fireEvent.change(within(dialog).getByLabelText('批量出货仓库'),{target:{value:'W2'}});
+ fireEvent.click(within(dialog).getByRole('checkbox',{name:'修改卸货时长（分钟）'}));fireEvent.change(within(dialog).getByLabelText('批量卸货时长（分钟）'),{target:{value:'30'}});fireEvent.click(within(dialog).getByRole('button',{name:'保存批量修改'}));
+ await waitFor(()=>expect(mock.api).toHaveBeenCalledWith('/master-data/stores/bulk-update','POST',{items:[{id:'S1',expected_revision:1}],changes:{warehouse_id:'W2',unload_minutes:30}}));
+});

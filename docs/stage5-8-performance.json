@@ -1,0 +1,629 @@
+{
+  "date": "2026-11-11",
+  "source": "FIXTURE",
+  "dataset_id": "SCALE_4W_800S_24000P_50V",
+  "dataset_hash": "929d1df3fbee3f72b30cf27bb1cd038d633681adf453ad03f3ef112087db9fb4",
+  "road_version": "directed-grid-v1",
+  "environment": {
+    "python": "3.12.14",
+    "platform": "macOS-15.7.7-x86_64-i386-64bit",
+    "database": "none, pure solver benchmark"
+  },
+  "warmup_runs": 1,
+  "hot_runs": 20,
+  "budget_seconds": 15,
+  "p95_method": "nearest-rank",
+  "p95_seconds": 4.15318,
+  "p95_limit_seconds": null,
+  "performance_status": "NOT_FROZEN",
+  "all_constraints_passed": true,
+  "unique_plan_count": 1,
+  "real_api_calls": 0,
+  "real_cold_runs": {
+    "status": "DEFERRED_BY_USER",
+    "requested_count": 3,
+    "actual_count": 0
+  },
+  "runs": [
+    {
+      "run": 1,
+      "seconds": 3.66676,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.652,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 2,
+      "seconds": 3.82527,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.81,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 3,
+      "seconds": 3.71122,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.6972,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 4,
+      "seconds": 3.5975,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.583,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 5,
+      "seconds": 3.76904,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.7532,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 6,
+      "seconds": 3.70379,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.6882,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 7,
+      "seconds": 3.67837,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.6634,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 8,
+      "seconds": 3.86425,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.8494,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 9,
+      "seconds": 3.81456,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.8004,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 10,
+      "seconds": 4.15318,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 4.1378,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 11,
+      "seconds": 3.88272,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.8669,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 12,
+      "seconds": 4.30869,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 4.2924,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 13,
+      "seconds": 4.05928,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 4.0415,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 14,
+      "seconds": 3.96235,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.9457,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 15,
+      "seconds": 3.76485,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.7503,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 16,
+      "seconds": 3.59668,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.581,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 17,
+      "seconds": 3.68677,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.6717,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 18,
+      "seconds": 3.71041,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.6951,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 19,
+      "seconds": 3.77342,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.7551,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    },
+    {
+      "run": 20,
+      "seconds": 3.94411,
+      "total_fee": "16518.40",
+      "baseline": "77910.00",
+      "used_vehicles": 50,
+      "tasks": 800,
+      "pieces": 24000,
+      "valid": true,
+      "algorithm": {
+        "mode": "BOUNDED_HEURISTIC",
+        "seed": 0,
+        "stop_reason": "SEARCH_COMPLETED",
+        "candidate_count": 5140,
+        "elapsed_seconds": 3.929,
+        "budget_seconds": 15,
+        "search_budget_seconds": 14.75,
+        "all_common_baseline": "77910.00",
+        "optimality_proven": false,
+        "infeasibility_proven": false,
+        "road_stats": {
+          "source": "FIXTURE",
+          "calls": 0,
+          "cache_hits": 41980,
+          "fixture_reads": 0,
+          "call_limit": 0
+        }
+      },
+      "plan_hash": "39a305914a8351133e77bacfcc1f945d8662d6a652d555c085a3abd74c3925de"
+    }
+  ]
+}

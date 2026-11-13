@@ -1,0 +1,25 @@
+{
+  "database": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial.db",
+  "port": 8001,
+  "default_delivery_date": "2026-08-06",
+  "road_source": "TEST_GRID",
+  "account_source": "original account hashes copied locally; no sessions or default credentials",
+  "stores": 365,
+  "warehouses": 2,
+  "vehicles": 50,
+  "days": 150,
+  "demand_rows": 11921,
+  "pieces": 234690,
+  "excluded_pending_warehouse_rows": 264,
+  "source_workbooks_modified": false,
+  "real_database_modified": false,
+  "default_snapshot_id": "746bc847-aaa6-4b78-97ca-eb89a5be9d9a",
+  "assumptions": [
+    "35合肥+15淮安测试车位；UAT车牌不对应实车",
+    "营业08:00-23:59、卸货5分钟为测试值，需逐店维护",
+    "两仓精确坐标、门店地址与坐标待核验",
+    "共配缺价；未把收入当成本",
+    "车辆尺寸/重量来自公开4.2米级参考车型，非实车核验",
+    "道路为非地理固定模拟，不可导航执行"
+  ]
+}

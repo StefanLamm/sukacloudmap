@@ -1,0 +1,20 @@
+{
+  "source": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial.db",
+  "backup": "/Users/linzhuofan/Desktop/Ai Agrent/Codex/物流规划软件/data/trial-20261111-a3cbbe/trial-ready-backup.db",
+  "schema": "0004_route_plans",
+  "sha256": "b1267eeb7268a3381c4082189d9619b0759e7ee731a5d89f96eaf6d4d4df3390",
+  "integrity": "ok",
+  "restore_status": "PASS",
+  "restored_counts": {
+    "warehouses": 2,
+    "stores": 365,
+    "vehicles": 50,
+    "demand_days": 150,
+    "daily_demands": 11919,
+    "input_snapshots": 150,
+    "plan_versions": 1
+  },
+  "pieces": 234690,
+  "plan_content_hash_unchanged": true,
+  "temporary_restore_removed": true
+}

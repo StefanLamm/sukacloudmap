@@ -1,0 +1,41 @@
+{
+  "business_rows": 12185,
+  "pieces": 241806,
+  "days": 150,
+  "stores": 408,
+  "out_of_scope_rows": 264,
+  "source_files": 5,
+  "matched_business_store_names": 367,
+  "linked_day_candidates": [
+    {
+      "day": "2026-08-06",
+      "tasks": 150,
+      "linked": 28,
+      "pieces": 3969
+    },
+    {
+      "day": "2026-09-08",
+      "tasks": 130,
+      "linked": 26,
+      "pieces": 2642
+    },
+    {
+      "day": "2026-09-25",
+      "tasks": 114,
+      "linked": 26,
+      "pieces": 2336
+    },
+    {
+      "day": "2026-10-23",
+      "tasks": 112,
+      "linked": 26,
+      "pieces": 1563
+    },
+    {
+      "day": "2026-09-15",
+      "tasks": 129,
+      "linked": 25,
+      "pieces": 2537
+    }
+  ]
+}

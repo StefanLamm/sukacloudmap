@@ -1,0 +1,247 @@
+{
+  "stage": "S4",
+  "version": "0.4.0",
+  "title": "每日配送需求导入、数据校验与规划输入快照",
+  "verification_date": "2026-11-11",
+  "status": "IMPLEMENTED_AND_VERIFIED_ON_SQLITE",
+  "requirements": [
+    "R04",
+    "R22",
+    "R23",
+    "R25"
+  ],
+  "acceptance": {
+    "AC03": "PASS_SQLITE：未知/重名、件数、重复汇总、零行和逐行定位",
+    "AC04": "PASS_SQLITE：整日替换、重复不累加和正确总数",
+    "AC18": "PASS_INPUT_SNAPSHOTS：主资料/日期资源/需求变化不改写旧输入；正式计划版本属于S7",
+    "AC20": "INPUT_CONSERVATION_ONLY：4仓800店24000件50车输入完整；线路约束、成本、性能和真实API未在S4验收"
+  },
+  "implemented": [
+    "业务操作统一在物流线路规划的三个工作页签",
+    "每日xlsx模板、受限上传、样例行与显式列匹配",
+    "编号优先且校验名称，唯一名称匹配，重名不猜",
+    "非负整数件数，重复同店汇总，零行跳过并保留来源",
+    "逐行错误阻止整批提交，配置缺失仅作方式限制提示",
+    "替换前后统计、各仓汇总及移除/新增变化",
+    "明确配送日确认、需求修订与预览修订的冲突保护",
+    "主资料与选定日期配置摘要绑定预览，24小时过期",
+    "事务整日替换和自动冻结，已提交回执幂等",
+    "当日最晚到店独立修订，明示北京时间与次日限制",
+    "完整冻结需求、来源文件摘要、仓库、门店、车辆、报价和时间",
+    "历史快照只读、内容哈希校验、JSON下载",
+    "输入变化提示、重新冻结及相同输入复用原版本",
+    "0003_daily_inputs增量迁移和本地升级前备份",
+    "缺失文字表头的文件拒绝，防止首条需求被误当表头遗漏"
+  ],
+  "automated_tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 163,
+    "failed": 0,
+    "stage4_cases": 46,
+    "prior_regression_cases": 117,
+    "duration_seconds": 46.75,
+    "stage4_source": "tests/test_stage4.py",
+    "warning": "Starlette提示httpx测试客户端将弃用；当前用例全部通过。"
+  },
+  "key_scenarios": [
+    {
+      "input": "两个普通业务账号及匿名请求",
+      "expected": "匿名401、写请求CSRF、登录业务账号共享同一需求和快照",
+      "actual": "PASS"
+    },
+    {
+      "input": "自定义/重复表头、重复列映射、数值编号、未知编号、名称不一致、重名",
+      "expected": "明确映射或来源行错误，不自动猜测门店",
+      "actual": "PASS"
+    },
+    {
+      "input": "同店2+3、空行、另一店0",
+      "expected": "1票5件，来源2/4行保留，零行不生成任务",
+      "actual": "PASS"
+    },
+    {
+      "input": "负数、小数、布尔、空件数、科学计数字符串、NaN、超限",
+      "expected": "错误定位，既有7件和输入版本保持",
+      "actual": "PASS"
+    },
+    {
+      "input": "同日连续重传、修改版重传、旧批次重复确认",
+      "expected": "整日替换不累加；旧回执不回放覆盖新输入",
+      "actual": "PASS"
+    },
+    {
+      "input": "错误日期、旧预览修订、两个并发提交、主档/当日设置变更",
+      "expected": "409且没有部分更新；并发仅一个提交成功",
+      "actual": "PASS"
+    },
+    {
+      "input": "其他日期的车辆变更或账号编辑",
+      "expected": "不误使本日预览失效",
+      "actual": "PASS"
+    },
+    {
+      "input": "需求写入后强制快照失败",
+      "expected": "整个事务回滚，旧需求、需求修订和旧快照均保持",
+      "actual": "PASS"
+    },
+    {
+      "input": "全部合法零行与完全空文件",
+      "expected": "零文件可明确清空并留快照；空文件拒绝",
+      "actual": "PASS"
+    },
+    {
+      "input": "换仓、改价、修改当日限制后重新冻结",
+      "expected": "旧正文和哈希保持，新版使用新值，旧版标输入已变更",
+      "actual": "PASS"
+    },
+    {
+      "input": "手工损坏快照正文",
+      "expected": "读取失败并拒绝使用，完整性校验生效",
+      "actual": "PASS"
+    },
+    {
+      "input": "上传中停用账号、超限文件、公式和坏文件",
+      "expected": "重新认证或文件保护拒绝，不保存业务需求",
+      "actual": "PASS"
+    },
+    {
+      "input": "无表头且首行包含数字件数的文件",
+      "expected": "422拒绝，不吞掉第一条需求，业务需求保持未修改",
+      "actual": "PASS"
+    }
+  ],
+  "fixed_scale_input": {
+    "status": "PASS",
+    "source": "产品交付/第一阶段需求与开发交接/规模固定数据集.json",
+    "source_kind": "FIXTURE",
+    "warehouses": 4,
+    "stores_and_tasks": 800,
+    "pieces": 24000,
+    "vehicles": 50,
+    "per_warehouse_tasks": 200,
+    "per_warehouse_pieces": 6000,
+    "source_rows_preserved": 800,
+    "real_roads_called": false,
+    "scope": "导入、来源、统计、快照守恒，不是优化性能或真实货车道路验收"
+  },
+  "frontend": {
+    "typescript": "PASS",
+    "production_build": "PASS",
+    "command": "./scripts/build-frontend.sh",
+    "node": "24.22.1",
+    "vite": "6.4.6"
+  },
+  "dependencies": {
+    "pip_check": "PASS",
+    "new_external_dependencies": false
+  },
+  "browser_qa": {
+    "status": "PASS",
+    "environment": "专用临时SQLite + localhost Uvicorn + in-app browser",
+    "checks": [
+      "错误文件3个错误分别定位未知店、重名和负数，确认禁用",
+      "自定义客户/配送数量列手工匹配",
+      "重复2+3合并5、零件数跳过、两仓合计2票9件",
+      "来源弹窗显示原文件第2/3行及2/3件",
+      "明确日期复选确认后生成需求R1与输入V1",
+      "当日最晚到店09:00改11:00，旧输入标变更且仍显示09:00",
+      "重新冻结V2后显示11:00，V1仍只读旧值",
+      "历史列表2个版本及各自变化状态",
+      "输入JSON真实下载，规范化哈希验证通过",
+      "零件数门店不出现在当日业务校验任务",
+      "切换另一日显示0需求，再返回保留原日数据",
+      "门店管理没有业务日期或每日导入入口",
+      "资源安排仍统一在物流业务页签",
+      "退出登录"
+    ],
+    "evidence": {
+      "daily_tasks": 2,
+      "total_pieces": 9,
+      "snapshots": 2,
+      "old_deadline": "2026-11-11T09:00:00+08:00",
+      "new_deadline": "2026-11-11T11:00:00+08:00",
+      "hashes": [
+        "03c53012d7a46aef5c5be1b6c3d78649ddc36c00cfd9a5c9fc45fc35c2f153a1",
+        "19f21e02939980653ff40a073efabf13beb8bd819a0900c330fbfdd8b9adcaeb"
+      ],
+      "screenshots": {
+        "stage4-current-snapshot.png": "bd50f1811a9b5947ab2bfccdce0ab83b495937122d1de8f8d6f070deae747e4e",
+        "stage4-import-errors.png": "46d0f31d14439e7ee363f122af8d5ea7b18ad14cf768937af832920ed1e97fc7",
+        "stage4-old-snapshot.png": "e8c10c3cb5f1f75e0e07e8f4027c707e763f6a537ffead1b3ca01a988403463a",
+        "stage4-preview.png": "f041d95bc096a938f277e71a4dd94232d2c58c71d89464405301c4aecb75ce05",
+        "stage4-sources.png": "4f434b5e70b07181790df7438d64bf1522d1ba5c4395cff8047d6c2d711475da",
+        "stage4-workspace.png": "e5441ff61de79d12cf6fb599cc67907f4fcdc899e0eeceac1034437761915111"
+      }
+    },
+    "temporary_server_stopped": true,
+    "temporary_database_removed": true,
+    "download_test_file_archived_in_workspace": true
+  },
+  "real_http_restart": {
+    "status": "PASS",
+    "script": "scripts/verify_live_restart.py",
+    "database": "temporary SQLite",
+    "checks": [
+      "两业务账号共享主资料与每日需求",
+      "重复源行聚合为5件",
+      "当日收货限制持久化",
+      "旧快照输入变更提示",
+      "第二次启动使用不同进程",
+      "当前需求和输入指纹重启前后相同",
+      "两个输入快照正文在重启后保留",
+      "原账号、有效会话及主资料不丢失",
+      "业务账号管理员接口403",
+      "已构建前端HTTP200"
+    ],
+    "business_database_modified": false,
+    "temporary_processes_stopped": true
+  },
+  "migration": {
+    "previous_schema": "0002_master_data",
+    "current_schema": "0003_daily_inputs",
+    "backup": "data/suka-pre-s4-20261111-c8e137.db",
+    "existing_record_ids_preserved": true,
+    "before_counts": {
+      "accounts": 1,
+      "shared_records": 0,
+      "warehouses": 0,
+      "stores": 0,
+      "vehicles": 0,
+      "quotes": 0
+    },
+    "after_counts": {
+      "accounts": 1,
+      "shared_records": 0,
+      "warehouses": 0,
+      "stores": 0,
+      "vehicles": 0,
+      "quotes": 0
+    },
+    "business_stage4_counts": {
+      "demand_days": 0,
+      "daily_demands": 0,
+      "input_snapshots": 0,
+      "demand_imports": 0
+    },
+    "qa_accounts_in_business_database": 0,
+    "foreign_key_violations": 0,
+    "browser_snapshot_download_verified": true,
+    "example_content_hash": "03c53012d7a46aef5c5be1b6c3d78649ddc36c00cfd9a5c9fc45fc35c2f153a1",
+    "download_sha256": "aa2884afb1812e0cfa2b29b5d104330aa511acf62ac70abe51830887c0370e4e"
+  },
+  "artifacts": {
+    "guide": "docs/stage4-guide.md",
+    "template": "docs/examples/daily-demand-template.xlsx",
+    "frozen_input_example": "docs/examples/stage4-frozen-input-example.json"
+  },
+  "limits": {
+    "postgresql": "NOT_RUN_TARGET_SERVER_NOT_AVAILABLE",
+    "real_truck_roads": "S5_NOT_IMPLEMENTED",
+    "cost_and_time_engine": "S5_NOT_IMPLEMENTED",
+    "joint_route_optimization": "S6_NOT_IMPLEMENTED",
+    "execution_plan_history_and_xlsx_export": "S7_NOT_IMPLEMENTED",
+    "production_deployment": "NOT_PERFORMED",
+    "phase1_source_and_historical_reports": "PRESERVED"
+  },
+  "next_stage": "S5 货车道路与计费时序"
+}

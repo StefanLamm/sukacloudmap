@@ -1,0 +1,140 @@
+{
+  "version": "0.9.0",
+  "completed_at": "2026-11-11T23:33:55+08:00",
+  "conclusion": "READY_FOR_LOCAL_ISOLATED_FUNCTIONAL_TRIAL",
+  "production_accepted": false,
+  "live_truck_accepted": false,
+  "final_browser_acceptance": "PENDING_USER_AVAILABLE",
+  "backend": {
+    "passed": 1250,
+    "seconds": 81.11,
+    "failed": 0,
+    "warning_count": 1,
+    "independent_solver_oracle_cases": 1000
+  },
+  "frontend": {
+    "component_tests_passed": 5,
+    "typescript_check": "PASS",
+    "production_build": "PASS",
+    "browser_full_flow": "PARTIAL"
+  },
+  "historical_replay": {
+    "days": 150,
+    "tasks": 11919,
+    "pieces": 234690,
+    "end_to_end_p95_seconds": 2.2904,
+    "all_exports_checked": true
+  },
+  "max_batch": {
+    "rows": 10000,
+    "tasks": 365,
+    "pieces": 10000,
+    "seconds": 1.2728,
+    "status": "PASS"
+  },
+  "concurrency": {
+    "users": 12,
+    "measured_operations": 2400,
+    "extra_read_modify_reads": 480,
+    "elapsed_seconds": 164.1584,
+    "statuses": {
+      "200": 1821,
+      "201": 480,
+      "409": 99
+    },
+    "latency": {
+      "read": {
+        "count": 1440,
+        "p95_seconds": 1.523713,
+        "max_seconds": 1.694314
+      },
+      "write": {
+        "count": 960,
+        "p95_seconds": 0.121994,
+        "max_seconds": 0.402911
+      }
+    },
+    "shared_revision_updates": 381,
+    "lost_updates": 0,
+    "targets": {
+      "read_p95_seconds": 2.0,
+      "write_p95_seconds": 3.0,
+      "unexpected_http_5xx": 0,
+      "independent_coverage_failures": 0
+    }
+  },
+  "solver_performance": {
+    "dataset_id": "SCALE_4W_800S_24000P_50V",
+    "dataset_hash": "929d1df3fbee3f72b30cf27bb1cd038d633681adf453ad03f3ef112087db9fb4",
+    "hot_runs": 20,
+    "budget_seconds": 15,
+    "p95_seconds": 4.6574,
+    "p95_limit_seconds": 15.0,
+    "performance_status": "PASS",
+    "all_constraints_passed": true,
+    "unique_plan_count": 1
+  },
+  "real_truck_api_calls": 0,
+  "road_source": "NON_GEOGRAPHIC_TEST_GRID",
+  "user_capacity_shortage_regression": "PASS",
+  "http_independent_restart": "PASS",
+  "backup_restore": "PASS",
+  "final_server_check": "PASS",
+  "original_business_preserved": true,
+  "trial": {
+    "url": "http://127.0.0.1:8001",
+    "default_delivery_date": "2026-08-06",
+    "stores": 365,
+    "warehouses": 2,
+    "vehicles": 50,
+    "days": 150,
+    "tasks": 11919,
+    "pieces": 234690,
+    "credentials": "existing accounts copied at creation; no default password",
+    "confirmable": false
+  },
+  "remaining": [
+    "Final interactive browser/manual adjustment review after user returns",
+    "Common carrier cost per piece and 264 pending warehouse source rows",
+    "Verified coordinates, shop receiving windows and actual truck profiles",
+    "External geocoder/tile reachability in deployment network",
+    "Real truck departure-time and restriction contract acceptance",
+    "Target PostgreSQL/HTTPS and deployment restore/load acceptance"
+  ],
+  "evidence_sha256": {
+    "pytest-output.txt": "7a70782dd9130d69cdb8d35f826d6cca6de09e8a23e09a5ef3cfd703cc9d7abb",
+    "frontend-tests.txt": "f3e5ed60bb78ec2e3d91233743b6b547832bf022fbb56221be2f46fe1c4a47ef",
+    "stress-test.json": "0722c5570cd47766feea8bdc02903fc9a855d632e1c77fdf4120e4e5838029fa",
+    "fixed-scale-performance.json": "3b6546379c24718768a19267833df1b47b0e103f12bb24bb391727aef537002f",
+    "load-protocol.json": "8420b9c1f602f719dcb522319650c08f988b5c3d423e525d8c781de2916556b6",
+    "capacity-regression.txt": "09e781d790925ce0c3742861fd231006c3cb736896dea868985c71bf10bfea0e",
+    "restart-http.json": "818a68e22f950f467000eebc46f4ef2c78738dc01d4cdd737313755d0e4777bf",
+    "backup-restore.json": "64b381be2b0c5b57109ba59e4c821def9c768121693431b9ce699e09a5da3e5e",
+    "business-preservation.json": "fd9f061df07b8bb6c5129076cf2a79cd563d3065b6f1230858076abd59a16772",
+    "source-analysis.json": "8dc077ccd29279e8fe5b705617d9761294400118339ea71fe286f1f96a0a1eee",
+    "data-gaps.json": "272e84d6505edb30f4daa1866f98609114f14ac4120ec6471008d17ad29aabee",
+    "warehouse-geocode.json": "f6cea6b4ac41edea28b69b51a226ac40dfa8a53ee5fb37491c0f0178822cf392",
+    "trial-data.json": "2597a525a5a156d6d3992f4f730ae5147242bec3116a786162c8339b9d4c4ae9",
+    "trial-initial-plan.json": "4ea36370f8bec7c8663c60b304671199806f954b525c6be57c50778acdf0dd48",
+    "final-server-check.json": "fe2a615506d4f1c0a0e335b5ebec58ed1c72d31c4f867c811a09256dc48b44bb",
+    "historical-cost-review.json": "faf196b01b097d285349d6c8ce67544bd5d8fb4843f8ae1e9ce08515c9cddb72",
+    "historical-cost-tests.txt": "bd594dd87c41ad62db36fce1e13ce8d21b004316c46da1182d8b5894bdccd5b4",
+    "historical-cost-validation.json": "b2fd1f5f8112a4eb6f720ca2762bfdcc67d193f23139cb36b4e64199f938071a"
+  },
+  "historical_expense_supplement": {
+    "date": "2026-11-12",
+    "group_by": [
+      "delivery_date",
+      "plate"
+    ],
+    "amount_rule": "FIRST_SOURCE_ROW_INCLUDING_DIFFERENT_LATER_AMOUNTS",
+    "decimal_comma_confirmed": true,
+    "policy_tests_passed": 19,
+    "raw_source_control": "PASS",
+    "car_days": 1745,
+    "future_common_price_changed": false,
+    "application_runtime_changed": false,
+    "report": "historical-cost-review.json",
+    "validation": "historical-cost-validation.json"
+  }
+}
