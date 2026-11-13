@@ -4,7 +4,8 @@
 
 - `main` 保存用户验收通过的版本；`test` 用于后续功能开发和修复。
 - 开始修改前检查 `git status --short --branch`、当前分支及未提交内容。后续开发在 `test` 上进行；不要丢弃已有修改，也不要覆盖其他聊天的工作。
-- Gitee 远程仓库为 `https://gitee.com/StefanLam/sukacloudmap.git`。同一目录里的多个聊天共用当前检出的分支；并行开发时使用独立工作树或目录。
+- 默认远程 `origin` 为 GitHub：`https://github.com/StefanLamm/sukacloudmap.git`，后续拉取和推送使用 GitHub。原 Gitee 地址 `https://gitee.com/StefanLam/sukacloudmap.git` 保留为 `gitee` 备用远程，仅在用户明确要求时同步。
+- 同一目录里的多个聊天共用当前检出的分支；并行开发时使用独立工作树或目录。
 - 代码变更完成后运行相关测试，按用户任务要求提交和推送 `test`，汇报变更、测试结果及待验收事项。
 - 仅在用户明确要求合并或发布时，将验收通过的 `test` 合并到 `main`。合并后同步分支，继续开发前切回 `test`。
 - 使用版本标签标记已发布提交，例如 `v0.15.0`。已有发布标签不得移动或覆盖。
