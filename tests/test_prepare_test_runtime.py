@@ -79,6 +79,59 @@ def test_failed_sanitization_does_not_publish_raw_session_copy(tmp_path):
     assert logical_dump(source) == before
 
 
+def test_reference_graph_is_copied_once_without_sharing_or_resetting(tmp_path):
+    helper = module()
+    source, target = tmp_path / 'stable-road.db', tmp_path / 'test-road.db'
+    with sqlite3.connect(source) as db:
+        db.executescript('''CREATE TABLE metrics(provider_key TEXT PRIMARY KEY, from_id TEXT, to_id TEXT, meters INTEGER,
+            seconds INTEGER, received_at INTEGER, evidence_hash TEXT, content BLOB);
+            INSERT INTO metrics VALUES ('edge','warehouse','store',1234,60,123456,'hash','original receipt');''')
+    before = logical_dump(source)
+    assert helper.initialize_reference_graph(source, target)
+    assert logical_dump(target) == before
+    assert target.stat().st_ino != source.stat().st_ino
+    assert target.stat().st_nlink == 1
+    assert target.stat().st_mode & 0o777 == 0o600
+    with sqlite3.connect(target) as db:
+        db.execute("UPDATE metrics SET meters=4321 WHERE provider_key='edge'")
+        db.commit()
+    assert not helper.initialize_reference_graph(source, target)
+    assert logical_dump(source) == before
+    with sqlite3.connect(target) as db:
+        assert db.execute('SELECT meters FROM metrics').fetchone()[0] == 4321
+
+
+@pytest.mark.parametrize('kind', ['same', 'symlink', 'hardlink', 'invalid_schema', 'missing_endpoint_columns'])
+def test_reference_graph_rejects_shared_files_and_bad_copies(tmp_path, kind):
+    helper = module()
+    source, target = tmp_path / 'stable.db', tmp_path / 'test.db'
+    with sqlite3.connect(source) as db:
+        db.execute('CREATE TABLE wrong_schema (id TEXT PRIMARY KEY)')
+        if kind == 'missing_endpoint_columns':
+            db.execute('CREATE TABLE metrics(provider_key TEXT PRIMARY KEY, meters INTEGER, seconds INTEGER, received_at INTEGER, evidence_hash TEXT, content BLOB)')
+    before = logical_dump(source)
+    if kind == 'same':
+        target = source
+    elif kind == 'symlink':
+        target.symlink_to(source)
+    elif kind == 'hardlink':
+        import os
+        os.link(source, target)
+    with pytest.raises((RuntimeError, sqlite3.OperationalError)):
+        helper.initialize_reference_graph(source, target)
+    assert logical_dump(source) == before
+    assert not list(tmp_path.glob('.road-copy-*'))
+    if kind in ('invalid_schema', 'missing_endpoint_columns'):
+        assert not target.exists()
+
+
+def test_missing_reference_graph_does_not_create_a_blank_cache(tmp_path):
+    helper = module()
+    target = tmp_path / 'test.db'
+    assert not helper.initialize_reference_graph(tmp_path / 'absent.db', target)
+    assert not target.exists()
+
+
 def workspace(tmp_path, monkeypatch, helper):
     root = tmp_path / 'workspace'
     stable = root / 'data/runtimes/stable'
@@ -86,7 +139,7 @@ def workspace(tmp_path, monkeypatch, helper):
     stable.mkdir(parents=True)
     source = root / 'data/stable.db'
     seed_database(source)
-    (stable / '.env').write_text('SUKA_DATABASE_URL=' + json.dumps('sqlite:///' + str(source)) + '\nSUKA_AMAP_RATE_LIMIT_PATH=' + json.dumps(str(root / 'data/shared-rate.db')) + '\n')
+    (stable / '.env').write_text('SUKA_DATABASE_URL=' + json.dumps('sqlite:///' + str(source)) + '\nSUKA_AMAP_RATE_LIMIT_PATH=' + json.dumps(str(root / 'data/shared-rate.db')) + '\nSUKA_AMAP_REFERENCE_GRAPH_PATH=' + json.dumps(str(root / 'data/stable-road.db')) + '\n')
     (stable / 'data/external-test').mkdir(parents=True)
     (stable / 'data/external-test/settings.json').write_text('{"edge_discovery":"doh"}')
     (root / 'data/runtime-isolation.json').write_text(json.dumps({'stable_root': str(stable)}))
@@ -133,6 +186,54 @@ def test_snapshot_refresh_keeps_test_data_and_stable_untouched(tmp_path, monkeyp
     assert (stable / '.env').read_text().startswith('SUKA_DATABASE_URL=')
     assert 'test_local' in (target / '.env').read_text()
     assert (target / 'frontend/dist/index.html').read_text() == 'test frontend'
+    assert helper.file_settings(target / '.env').amap_reference_graph_test_enabled is True
+
+
+def test_old_test_config_migration_keeps_independent_settings_and_existing_data(tmp_path, monkeypatch):
+    helper = module()
+    root, stable, target, source = workspace(tmp_path, monkeypatch, helper)
+    helper.prepare()
+    config = target / '.env'
+    # Simulate an old runtime before the opt-in field existed, with deliberate
+    # independent test choices which a deployment must not reset from stable.
+    replacements = {'SUKA_AMAP_WEB_SERVICE_KEY': 'TEST_ONLY_INDEPENDENT_WEB_KEY',
+                    'SUKA_DRIVING_JOB_MAX_CALLS': 17, 'SUKA_PLANNING_OPTIMIZER_PROFILE': 'ALNS',
+                    'SUKA_DRIVING_LIVE_CALLS_ENABLED': True, 'SUKA_PLANNING_COMMON_PENALTY_MULTIPLIER': 1.5}
+    lines = [line for line in config.read_text().splitlines()
+             if not line.startswith('SUKA_AMAP_REFERENCE_GRAPH_TEST_ENABLED=') and
+             line.split('=', 1)[0] not in replacements]
+    lines.extend(key + '=' + json.dumps(value) for key, value in replacements.items())
+    config.write_text('\n'.join(lines) + '\n')
+    before_test = logical_dump(target / 'data/application.db')
+    before_stable = logical_dump(source)
+    before_config = (stable / '.env').read_bytes()
+    helper.prepare()
+    updated = helper.file_settings(config)
+    assert updated.amap_reference_graph_test_enabled is True
+    assert updated.amap_web_service_key.get_secret_value() == 'TEST_ONLY_INDEPENDENT_WEB_KEY'
+    assert updated.driving_job_max_calls == 17 and updated.driving_live_calls_enabled
+    assert updated.planning_optimizer_profile == 'ALNS'
+    assert updated.planning_common_penalty_multiplier == 1.5
+    assert logical_dump(target / 'data/application.db') == before_test
+    assert logical_dump(source) == before_stable
+    assert (stable / '.env').read_bytes() == before_config
+
+
+def test_existing_config_without_database_still_initializes_from_stable(tmp_path, monkeypatch):
+    helper = module()
+    root, stable, target, source = workspace(tmp_path, monkeypatch, helper)
+    (target / 'data').mkdir(parents=True)
+    (target / '.env').write_text('SUKA_DATABASE_URL=' + json.dumps('sqlite:///' + str(target / 'data/application.db')) +
+        '\nSUKA_PLANNING_OPTIMIZER_PROFILE=ALNS\nSUKA_DRIVING_JOB_MAX_CALLS=19\n')
+    before = logical_dump(source)
+    helper.prepare()
+    updated = helper.file_settings(target / '.env')
+    assert updated.amap_reference_graph_test_enabled is True
+    assert updated.planning_optimizer_profile == 'ALNS' and updated.driving_job_max_calls == 19
+    with sqlite3.connect(target / 'data/application.db') as db:
+        assert db.execute('SELECT id FROM stores').fetchall() == [('S1',)]
+        assert db.execute('SELECT COUNT(*) FROM login_sessions').fetchone()[0] == 0
+    assert logical_dump(source) == before
 
 
 def test_dependency_change_fails_before_rewriting_snapshot(tmp_path, monkeypatch):

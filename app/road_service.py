@@ -186,7 +186,17 @@ class DrivingRoad(TruckRoad):
         self.graph=None;self._metric_keys={};self.metric_hints={};self.io_seconds=0.;self.historical_hits=0
         self.local=OrderedDict();self._freshened_keys=set();self._fresh_bound_keys=set()
         path=getattr(self.settings,'amap_reference_graph_path',None)
-        if self.settings.environment!='test' and path is not None and path.is_file():
+        if self.settings.environment=='test':
+            # Unit tests must not even inspect a default business graph. Only
+            # an explicitly enabled, registered isolated runtime may load one.
+            if getattr(self.settings,'amap_reference_graph_test_enabled',False):
+                from scripts.runtime_isolation import validate_test_runtime
+                validate_test_runtime(ROOT,self.settings)
+                from app.road_graph import ReferenceGraph
+                # A missing dedicated file is an empty view; ReferenceGraph
+                # creates it only when fresh measured evidence is later stored.
+                self.graph=ReferenceGraph(path)
+        elif path is not None and path.is_file():
             from app.road_graph import ReferenceGraph
             self.graph=ReferenceGraph(path)
 

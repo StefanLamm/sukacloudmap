@@ -123,6 +123,88 @@ def _offline_validation(data, result, road):
             'requires_truck_review': bool(driving)}
 
 
+def _post_selection_small_groups(data, road, incumbent, budget, seed, cancelled):
+    """Use only unused column-selection time, once, without new provider calls.
+
+    Repeated early enumeration competes with the main heuristics for their
+    fixed allowance. This optional phase starts after those runs and pooling,
+    keeps their complete incumbent, and leaves the final 17% verification
+    reserve intact. The caller's observer also retains its route recipes.
+    """
+    from app.route_portfolio import _phase
+    from app.route_search import JointSearch
+    from app.route_small_groups import seed_small_groups
+
+    started = time.monotonic()
+    compute_before = budget.compute()
+    ceiling = budget.seconds * .83
+    seconds = min(3., budget.seconds * .05, max(0., ceiling - compute_before))
+    diagnostics = {'budget_seconds': seconds, 'compute_before': compute_before,
+                   'pre_validation_compute_limit': ceiling, 'before_fee': incumbent['total_fee'],
+                   'after_fee': incumbent['total_fee'], 'candidate_count': 0,
+                   'new_network_calls': 0, 'methods': [], 'global_optimality_proven': False}
+    if cancelled():
+        raise StopSearch('CANCELLED')
+    if seconds < .05 or not callable(getattr(road, 'known_segment', None)):
+        diagnostics.update(stop_reason='NO_UNUSED_SELECTION_BUDGET' if seconds < .05 else 'MATRIX_UNAVAILABLE',
+                           skipped=True, elapsed_seconds=round(time.monotonic() - started, 4), compute_seconds=0.)
+        return incumbent, diagnostics
+    original_limit = getattr(road, 'call_limit', None)
+    cap_io = isinstance(road, DrivingRoad)
+    calls_before = road.stats().get('calls', 0)
+    if cap_io:
+        road.call_limit = min(road.calls, original_limit) if original_limit is not None else road.calls
+    search = None
+    stopped = 'SEARCH_COMPLETED'
+    try:
+        search = JointSearch(data, road, seconds, seed, cancelled, incumbent)
+        local_control, local_remaining = search.control, search.remaining
+        def control():
+            budget.control()
+            if budget.compute() >= ceiling:
+                raise StopSearch('SMALL_GROUP_BUDGET')
+            local_control()
+        search.control = control
+        search.remaining = lambda: max(0., min(local_remaining(), ceiling - budget.compute()))
+        native_pack = search.pack
+        def bounded_pack():
+            # JointSearch's native selector has a 50 ms minimum allowance.
+            # Do not start it with only a few milliseconds before the reserve.
+            if search.remaining() >= .075:
+                return native_pack()
+        search.pack = bounded_pack
+        # This read-only phase needs no provider-key preflight. Every proposed
+        # physical car still passes capacity/warehouse/evidence checks when the
+        # host materializes it; no credentials are needed to price known roads.
+        for car in sorted(data['vehicles'].values(), key=lambda v: (v['warehouse_id'], -v['max_pieces'], v['id'])):
+            search.control()
+            if car['available']:
+                search.cars.append(car)
+        diagnostics['methods'].append(_phase(search, 'small_compatible_groups', seconds * .75,
+                                              lambda: seed_small_groups(search)))
+        if search.evaluations and search.remaining() >= .075:
+            diagnostics['methods'].append(_phase(search, 'small_group_joint_selection', search.remaining(), search.pack))
+    except StopSearch as exc:
+        if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+            raise
+        stopped = exc.reason
+    finally:
+        if cap_io:
+            road.call_limit = original_limit
+    result = incumbent
+    if search is not None:
+        # A local deadline, missing evidence or refreshed-start policy must not
+        # discard the complete pre-existing allocation already held by deep.
+        if _partial_legal(data, search.best) and result_rank(search.best) < result_rank(incumbent):
+            result = search.best
+        diagnostics.update(candidate_count=search.evaluations, distinct_route_count=len(search.pool))
+    diagnostics.update(after_fee=result['total_fee'], skipped=False, stop_reason=stopped,
+                       elapsed_seconds=round(time.monotonic() - started, 4),
+                       compute_seconds=round(max(0., budget.compute() - compute_before), 4),
+                       new_network_calls=road.stats().get('calls', 0) - calls_before)
+    return result, diagnostics
+
+
 def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: False,
                   *, initial_result=None, progress=None):
     """Saveable results are complete and independently verified, never estimates.
@@ -154,6 +236,24 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     rounds = []
     stopped = 'SEARCH_COMPLETED'
     validation = None
+    small_details = None
+    eligible_count = sum(bool(task['signature']) and any(
+        car['available'] and car['warehouse_id'] == task['warehouse_id']
+        and car['max_pieces'] >= task['pieces'] for car in data['vehicles'].values())
+        for task in data['tasks'].values())
+    original_call_limit = getattr(road, 'call_limit', None)
+    calls_at_entry = road.stats().get('calls', 0)
+    reserve_calls = (isinstance(road, DrivingRoad) and original_call_limit is not None
+                     and original_call_limit > 0
+                     and bool(getattr(road.settings, 'road_calls_enabled', False)))
+    remaining_calls = (max(0, original_call_limit - calls_at_entry)
+                       if original_call_limit is not None else None)
+    reserved_calls = min(remaining_calls, eligible_count) if reserve_calls else 0
+    search_call_limit = original_call_limit - reserved_calls if reserve_calls else original_call_limit
+    call_budget = {'enabled': reserve_calls, 'total_limit': original_call_limit,
+                   'eligible_task_count': eligible_count, 'calls_at_entry': calls_at_entry,
+                   'search_call_limit': search_call_limit, 'reserved_for_validation': reserved_calls,
+                   'reservation_policy': 'ONE_ATTEMPT_PER_ELIGIBLE_TASK'}
 
     def interrupted():
         return cancelled() or budget.elapsed() >= budget.wall_seconds
@@ -206,11 +306,13 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     # Settings or module-global algorithm functions are changed between seeds.
     road.candidate_observer = observe
     try:
+        if reserve_calls:
+            # Fresh validation cannot reuse search receipts. Keep one attempt
+            # per eligible task; retries and repair bridges may still need more.
+            # With a smaller total allowance, search can still use known roads.
+            road.call_limit = search_call_limit
         search_allowance = budget.seconds * .64
-        eligible = any(task['signature'] and any(car['available'] and car['warehouse_id'] == task['warehouse_id']
-                       and car['max_pieces'] >= task['pieces'] for car in data['vehicles'].values())
-                       for task in data['tasks'].values())
-        planned_rounds = max(4, min(128, int(ceil(search_allowance / 45)))) if eligible else 0
+        planned_rounds = max(4, min(128, int(ceil(search_allowance / 45)))) if eligible_count else 0
         profiles = [('HYBRID', 1), ('GUIDED_LOCAL_SEARCH', 4), ('ALNS', 1),
                     ('HYBRID', 1), ('GUIDED_LOCAL_SEARCH', 1), ('SIMULATED_ANNEALING', 1.5)]
         emit({'stage': 'MULTI_START', 'round_total': planned_rounds})
@@ -254,7 +356,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         old_call_limit = getattr(road, 'call_limit', None)
         cap_extra_io = isinstance(road, DrivingRoad)
         if cap_extra_io:
-            road.call_limit = road.calls
+            road.call_limit = min(road.calls, old_call_limit) if old_call_limit is not None else road.calls
         try:
             pooled = select_portfolio(body, road, [best_complete or best],
                                       candidate_recipes=list(observed.values()),
@@ -267,9 +369,21 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         keep(pooled)
         stages.append({'stage': 'COLUMN_SELECTION', 'elapsed_seconds': round(time.monotonic() - before, 4),
                        'total_fee': pooled['total_fee'], 'details': deepcopy(pooled.get('algorithm', {}))})
+        strengthened, small_details = _post_selection_small_groups(
+            data, road, best_complete or best, budget, seed, interrupted)
+        keep(strengthened)
+        stages.append({'stage': 'SMALL_GROUP_INTENSIFICATION', 'total_fee': strengthened['total_fee'],
+                       'elapsed_seconds': small_details['elapsed_seconds'], 'details': small_details})
     except StopSearch as exc:
         stopped = exc.reason
     finally:
+        if reserve_calls:
+            road.call_limit = original_call_limit
+        calls_after_search = road.stats().get('calls', 0)
+        call_budget.update(calls_after_search=calls_after_search,
+                           search_calls=max(0, calls_after_search - calls_at_entry),
+                           remaining_before_validation=(max(0, original_call_limit - calls_after_search)
+                               if original_call_limit is not None else None))
         if had_observer:
             road.candidate_observer = previous_observer
         else:
@@ -355,12 +469,13 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         'budget_seconds': budget_seconds, 'elapsed_seconds': round(budget.elapsed(), 4),
         'compute_seconds': round(budget.compute(), 4), 'wall_budget_seconds': budget.wall_seconds,
         'seed': seed, 'round_count': len(rounds), 'rounds': rounds, 'stages': stages,
-        'candidate_count': sum(r['candidate_count'] for r in rounds),
+        'candidate_count': sum(r['candidate_count'] for r in rounds) + (small_details or {}).get('candidate_count', 0),
         'distinct_route_count': len(observed), 'candidate_pool_limit': max_recipes,
         'candidate_observations': observation_count, 'dropped_candidate_observations': dropped_observations,
         'actual_seeds': [r['seed'] for r in rounds], 'final_validation': validation,
         'complete_round_allocations': len(complete_allocations),
-        'road_stats': road.stats(), 'selection_diagnostics': source_algorithm,
+        'road_stats': road.stats(), 'road_call_budget': call_budget,
+        'selection_diagnostics': source_algorithm,
         'optimality_proven': False, 'global_225_task_optimality_proven': False,
         'candidate_pool_optimal': False, 'cost_candidate_pool_optimal': False,
         'cost_objective': 'min_unassigned_then_total_fee_then_distance_then_vehicles',

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     amap_web_service_key: SecretStr | None = None
     amap_rate_limit_path: Path = ROOT / 'data' / 'amap' / 'rate-limit.db'
     amap_reference_graph_path: Path = ROOT / 'data' / 'amap' / 'reference-graph.db'
+    amap_reference_graph_test_enabled: bool = False
     amap_web_qps: int = Field(default=3, ge=1, le=3)
     amap_js_qps: int = Field(default=10, ge=1, le=10)
     truck_live_calls_enabled: bool = False

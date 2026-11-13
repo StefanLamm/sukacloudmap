@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import tempfile
+from contextlib import closing
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -58,21 +59,69 @@ def clone_test_database(source, target):
     return proof
 
 
-def write_test_config(target, stable_config):
-    # Only the frozen local configuration is a source; ignore inherited SUKA_*.
+def file_settings(config):
+    """Only the frozen local configuration is a source, not inherited SUKA_*."""
     inherited = {k: os.environ.pop(k) for k in list(os.environ) if k.upper().startswith('SUKA_')}
     try:
-        settings = Settings(_env_file=stable_config)
+        return Settings(_env_file=config)
     finally:
         os.environ.update(inherited)
-    source = make_url(settings.database_url.get_secret_value())
+
+
+def initialize_reference_graph(source, target):
+    """Seed prior measured-road learning once, into an independent SQLite file."""
+    source, target = Path(source).resolve(), Path(target)
+    if source == target.resolve():
+        raise RuntimeError('稳定版与测试版道路参考图不能共用文件。')
+    if target.is_symlink() or target.resolve() != target:
+        raise RuntimeError('测试道路参考图不能使用链接。')
+    if target.exists():
+        if not target.is_file() or target.stat().st_nlink != 1:
+            raise RuntimeError('测试道路参考图必须是独立文件。')
+        return False
+    if not source.is_file():
+        return False
+    with tempfile.TemporaryDirectory(dir=target.parent, prefix='.road-copy-') as staging:
+        temporary = Path(staging) / 'reference-graph.db'
+        temporary.touch(mode=0o600)
+        with closing(sqlite3.connect(source.as_uri() + '?mode=ro', uri=True)) as src, closing(sqlite3.connect(temporary)) as dst:
+            src.backup(dst)
+            dst.commit()
+            if dst.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0] != 0:
+                raise RuntimeError('道路参考图备份检查点未完成。')
+            if dst.execute('PRAGMA journal_mode=DELETE').fetchone()[0].lower() != 'delete':
+                raise RuntimeError('道路参考图备份仍依赖 WAL。')
+            if dst.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                raise RuntimeError('道路参考图副本完整性检查失败。')
+            # The runtime writes eight values in this order. A partial legacy
+            # schema must not appear usable and then fail on the first update.
+            columns = [row[1] for row in dst.execute('PRAGMA table_info(metrics)')]
+            if columns != ['provider_key', 'from_id', 'to_id', 'meters', 'seconds',
+                           'received_at', 'evidence_hash', 'content']:
+                raise RuntimeError('道路参考图结构不兼容，未创建测试副本。')
+        os.link(temporary, target)
+        temporary.unlink()
+    return True
+
+
+def write_test_config(target, stable_config):
+    # Stable remains the initialization source, even if an old test .env is
+    # present but its database has not yet been created. Existing test choices
+    # (keys, request limits and optimizer profile) survive ordinary refreshes.
+    stable_settings = file_settings(stable_config)
+    source = make_url(stable_settings.database_url.get_secret_value())
     if source.get_backend_name() != 'sqlite' or not source.database or not Path(source.database).is_absolute():
         raise RuntimeError('稳定版必须配置绝对路径 SQLite 数据库才能复制。')
+    config = target / '.env'
+    if config.exists() and (not config.is_file() or config.is_symlink()):
+        raise RuntimeError('测试版配置必须是独立的普通文件。')
+    settings = file_settings(config) if config.is_file() else stable_settings
     values = {key: getattr(settings, key) for key in type(settings).model_fields}
     values.update(environment='test', database_url='sqlite:///' + str(target / 'data/application.db'),
                   public_origin='http://127.0.0.1:8002', allowed_hosts=['127.0.0.1', 'localhost'],
                   secure_cookie=False, cookie_namespace='test_local',
                   amap_reference_graph_path=target / 'data/reference-graph.db',
+                  amap_reference_graph_test_enabled=True,
                   map_auto_geocode_enabled=False,
                   runtime_label='测试版 · 独立数据，修改不影响稳定版')
     lines = []
@@ -85,7 +134,6 @@ def write_test_config(target, stable_config):
             value = str(value.resolve())
         # dotenv quoted strings protect spaces; JSON arrays remain valid settings.
         lines.append('SUKA_' + key.upper() + '=' + json.dumps(value, ensure_ascii=False))
-    config = target / '.env'
     with tempfile.NamedTemporaryFile(mode='w', dir=target, prefix='.env.', delete=False) as stream:
         temporary = Path(stream.name)
         stream.write('\n'.join(lines) + '\n')
@@ -95,13 +143,16 @@ def write_test_config(target, stable_config):
 
 def check_existing_runtime(target):
     """Run before copying source/config so an old lock cannot be overwritten first."""
-    for relative in ('data', '.env', '.venv', 'frontend', 'frontend/dist', 'requirements.lock', 'source-manifest.json'):
+    for relative in ('data', 'data/reference-graph.db', '.env', '.venv', 'frontend', 'frontend/dist', 'requirements.lock', 'source-manifest.json'):
         path = target / relative
         if path.resolve() != path or path.is_symlink():
             raise RuntimeError('测试运行目录不能通过链接共用稳定版文件。')
     database = target / 'data/application.db'
     if database.exists() and (not database.is_file() or database.stat().st_nlink != 1):
         raise RuntimeError('测试数据库不能共用硬链接文件。')
+    graph = target / 'data/reference-graph.db'
+    if graph.exists() and (not graph.is_file() or graph.stat().st_nlink != 1):
+        raise RuntimeError('测试道路参考图不能共用硬链接文件。')
     if (target / '.venv').exists():
         lock = target / 'requirements.lock'
         if not lock.is_file() or lock.read_bytes() != (ROOT / 'requirements.lock').read_bytes():
@@ -150,6 +201,9 @@ def _prepare():
     initialized = not database.exists()
     if initialized:
         clone_test_database(source, database)
+    graph_initialized = initialize_reference_graph(
+        file_settings(stable / '.env').amap_reference_graph_path,
+        target / 'data/reference-graph.db')
     files = subprocess.check_output(['git', 'ls-files', '-c', '-o', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
     hashes = {}
     for name in filter(None, files):
@@ -185,7 +239,8 @@ def _prepare():
     shutil.copy2(stable / 'data/external-test/settings.json', external / 'settings.json')
     private_json(previous, {'branch': 'test', 'base_commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(), 'files': hashes})
     private_json(ROOT / 'data/runtime-isolation.json', {'stable_root': str(stable), 'test_root': str(target)})
-    print(json.dumps({'status': 'PREPARED', 'test_root': str(target), 'database_initialized': initialized, 'source_files': len(hashes)}, ensure_ascii=False))
+    print(json.dumps({'status': 'PREPARED', 'test_root': str(target), 'database_initialized': initialized,
+                      'reference_graph_initialized': graph_initialized, 'source_files': len(hashes)}, ensure_ascii=False))
 
 
 def prepare():
