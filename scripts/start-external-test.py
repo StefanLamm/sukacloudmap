@@ -1,7 +1,7 @@
 """Start a temporary HTTPS tunnel and a strict production-mode origin.
 
-The business database and existing accounts are shared; no default user is
-created. Only loopback listeners are used. Ctrl+C stops both child processes.
+Port 8770 uses the frozen stable runtime; 8771 uses the registered isolated
+test runtime. Only loopback listeners are used. Ctrl+C stops both children.
 """
 import argparse
 import fcntl
@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -19,6 +20,7 @@ import time
 import httpx
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
 FOLDER=ROOT/'data/external-test'
 # Published edge IPs, checked against Cloudflare's official firewall reference.
 # https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/
@@ -105,7 +107,33 @@ def stop_existing():
     print('已请求关闭临时HTTPS入口，原网址随后失效。')
 
 
-def main(edge_discovery=None):
+def ensure_runtime_launch(port=8770):
+    if (ROOT/'data/runtime-isolation.json').exists():
+        raise RuntimeError('请通过 scripts/manage-services.py 启动已隔离的 external 或 test-external。')
+    if (ROOT/'.git').exists():
+        branch=subprocess.run(['git','branch','--show-current'],cwd=ROOT,capture_output=True,text=True)
+        if branch.returncode==0 and branch.stdout.strip()=='test':
+            raise RuntimeError('test 工作区不能直接公开业务服务；请先准备隔离目录并通过 manage-services.py 启动。')
+    if ROOT.parent.name=='runtimes' and ROOT.parent.parent.name=='data':
+        from scripts.runtime_isolation import runtime_roots
+        roots=runtime_roots(ROOT.parents[2])
+        key='test_root' if port==8771 else 'stable_root'
+        if roots is None or roots.get(key)!=ROOT:
+            raise RuntimeError('外网端口与已登记的稳定/测试运行目录不匹配。')
+
+
+def main(edge_discovery=None,port=8770):
+    if port not in {8770,8771}:raise ValueError('外网源服务端口只能是 8770 或 8771。')
+    ensure_runtime_launch(port)
+    with socket.socket() as probe:
+        if probe.connect_ex(('127.0.0.1',port))==0:
+            raise RuntimeError('外网源服务端口已占用，未建立隧道。')
+    if port==8771:
+        # Check the private database binding before opening any public route.
+        checked=subprocess.run([sys.executable,str(ROOT/'scripts/start-test.py'),'--check'],cwd=ROOT,
+            env={k:v for k,v in os.environ.items() if not k.upper().startswith(('SUKA_','TUNNEL_'))},
+            capture_output=True,text=True)
+        if checked.returncode:raise RuntimeError('测试运行隔离配置校验失败，未建立隧道。')
     FOLDER.mkdir(parents=True,exist_ok=True,mode=0o700)
     lock=(FOLDER/'launcher.lock').open('w');os.chmod(lock.name,0o600)
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -124,17 +152,17 @@ def main(edge_discovery=None):
     launcher_identity=process_identity(os.getpid())
     if not launcher_identity:raise RuntimeError('无法核实外网启动器进程身份，未建立隧道。')
     state={'status':'STARTING','launcher_pid':os.getpid(),'launcher_identity':launcher_identity,
-           'port':8770,'edge_discovery':edge_discovery}
+           'port':port,'edge_discovery':edge_discovery}
     if edges:state['edge_addresses']=edges
     def save():
         path=FOLDER/'current.json';path.touch(mode=0o600,exist_ok=True);path.chmod(0o600)
         path.write_text(json.dumps(state,ensure_ascii=False,indent=2)+'\n')
     save()
     try:
-        env={k:v for k,v in os.environ.items() if not k.startswith(('SUKA_','TUNNEL_'))}
+        env={k:v for k,v in os.environ.items() if not k.upper().startswith(('SUKA_','TUNNEL_'))}
         edge_args=[argument for endpoint in edges for argument in ('--edge',endpoint)]
         tunnel=subprocess.Popen([str(binary),'tunnel','--config',str(empty_config),'--no-autoupdate',
-            '--url','http://127.0.0.1:8770','--protocol','http2','--edge-ip-version','4',
+            '--url',f'http://127.0.0.1:{port}','--protocol','http2','--edge-ip-version','4',
             '--metrics','127.0.0.1:0','--management-diagnostics=false',*edge_args],cwd=ROOT,
             stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,env=env)
         children.append(tunnel);state['tunnel_pid']=tunnel.pid;save()
@@ -152,14 +180,15 @@ def main(edge_discovery=None):
             if tunnel.poll() is not None or time.monotonic()>deadline:
                 raise RuntimeError('临时隧道建立失败，诊断保存在data/external-test/tunnel.log')
         url=address[0];host=url.removeprefix('https://')
-        server=subprocess.Popen([sys.executable,str(ROOT/'scripts/start-external-origin.py'),'--url',url],
-                                cwd=ROOT,stdout=logs[1],stderr=subprocess.STDOUT)
+        origin='start-test.py' if port==8771 else 'start-external-origin.py'
+        server=subprocess.Popen([sys.executable,str(ROOT/'scripts'/origin),'--url',url,'--port',str(port)],
+                                cwd=ROOT,stdout=logs[1],stderr=subprocess.STDOUT,env=env)
         children.append(server);state.update(url=url,origin_pid=server.pid);save()
         with httpx.Client(timeout=3,trust_env=False) as client:
             deadline=time.monotonic()+30
             while not stop.is_set():
                 try:
-                    response=client.get('http://127.0.0.1:8770/healthz',headers={'host':host})
+                    response=client.get(f'http://127.0.0.1:{port}/healthz',headers={'host':host})
                     if response.status_code==200:break
                 except httpx.HTTPError:pass
                 if server.poll() is not None or time.monotonic()>deadline:raise RuntimeError('外网测试应用未启动，请查看origin.log')
@@ -190,8 +219,9 @@ def main(edge_discovery=None):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stop',action='store_true')
+    parser.add_argument('--port',type=int,choices=[8770,8771],default=8770)
     parser.add_argument('--edge-discovery',choices=['system','doh'],default=None,
                         help='默认沿用项目已保存配置；doh仅为本隧道使用Cloudflare官方HTTPS解析')
     args=parser.parse_args()
     if args.stop:stop_existing()
-    else:main(args.edge_discovery)
+    else:main(args.edge_discovery,args.port)

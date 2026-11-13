@@ -2,4 +2,4 @@
 set -euo pipefail
 SUKA_TASK_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$SUKA_TASK_ROOT"
-exec .venv/bin/python scripts/manage-services.py start main external trial history driving
+exec .venv/bin/python scripts/manage-services.py start all

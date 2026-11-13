@@ -2,6 +2,8 @@
 import argparse
 from pathlib import Path
 import sys
+if (Path(__file__).resolve().parents[1] / 'data/runtime-isolation.json').exists():
+    raise SystemExit('已启用稳定/测试版本隔离，请使用“启动测试版.command”（8002）；旧验收数据保留在归档中。')
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import uvicorn

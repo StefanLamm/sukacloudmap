@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     planning_road_source: Literal['LIVE','TEST_GRID'] = 'LIVE'
     cookie_namespace: str = Field(default='',pattern=r'^[a-z0-9_]{0,24}$')
     uat_delivery_date: str | None = Field(default=None,pattern=r'^\d{4}-\d{2}-\d{2}$')
+    runtime_label: str = Field(default='', max_length=100)
     map_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
     map_provider: Literal['AMAP', 'OPEN'] = 'AMAP'
     map_geocoder_url: str = "https://photon.komoot.io/api/"

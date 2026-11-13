@@ -131,7 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def runtime_info():
         return {'environment':settings.environment,'test_fixture':settings.planning_road_source == 'TEST_GRID',
                 'default_delivery_date':settings.uat_delivery_date if settings.planning_road_source == 'TEST_GRID' else None,
-                'label':'隔离测试 · 模拟道路，不能执行' if settings.planning_road_source == 'TEST_GRID' else ''}
+                'label':settings.runtime_label or ('隔离测试 · 模拟道路，不能执行' if settings.planning_road_source == 'TEST_GRID' else '')}
 
     # The generic master /api/{kind} route must follow fixed system endpoints.
     app.include_router(master_router)

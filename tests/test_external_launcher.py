@@ -119,6 +119,7 @@ def test_manager_ownership_requires_same_start_identity_and_independent_session(
 
 def test_managed_stop_keeps_legacy_launcher_stop_compatibility(monkeypatch):
     monkeypatch.setattr(manager,'owned_pid',lambda name:None)
+    monkeypatch.setattr(manager,'service_root',lambda workspace,name:workspace)
     calls=[]
     def run(command,**kwargs):calls.append(command);return SimpleNamespace(returncode=0)
     monkeypatch.setattr(manager.subprocess,'run',run)

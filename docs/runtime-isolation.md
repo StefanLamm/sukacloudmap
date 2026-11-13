@@ -1,0 +1,56 @@
+# 稳定版与测试版运行隔离
+
+稳定版固定在已验收的 `main` 提交 `8ba4fe4`（`v0.15.0`），以源码快照运行。开发工作区保持 `test`；切分支、修改代码或构建前端不会改变正在运行的稳定版本。
+
+| 项目 | 稳定版 | 测试版 |
+| --- | --- | --- |
+| 本机入口 | http://127.0.0.1:8000 | http://127.0.0.1:8002 |
+| 运行目录 | `data/runtimes/stable-8ba4fe4` | `data/runtimes/test-working` |
+| 代码、Python依赖、前端 | 固定发布快照与独立 `.venv`、`frontend/dist` | 测试源码快照与独立 `.venv`、`frontend/dist` |
+| 配置 | 快照内私有 `.env` | 测试目录内私有 `.env` |
+| 数据库 | 原业务库的绝对路径 | 测试目录 `data/application.db` |
+| 道路参考缓存 | 原稳定版参考图 | 测试目录 `data/reference-graph.db` |
+| 本机登录Cookie | 原名称 | `suka_test_local_session` |
+| 可选HTTPS源端口 | 8770 | 8771 |
+
+高德每秒限流文件刻意共用，避免两套服务合计超过同一Key的配额；业务缓存和道路参考图不共用。测试版使用原账号的独立副本，后续在测试版改密码或业务数据不影响稳定版。首次复制会清除复制来的登录会话和限速记录，取消副本内未结束的规划任务、清空定位队列；默认关闭自动地址关联，手动地图检索及按需道路请求仍遵循现有配置。
+
+本轮按用户选择仅保留本机入口；“恢复全部测试入口.command”和`start all`也只启动本机两套服务。外网隧道是独立、可选入口，需要另外授权后明确启动；临时URL会变化，需保持电脑联网且不休眠。隔离后的URL分别保存在两个快照下的 `data/external-test/current.json`，原工作区同名文件不再代表当前入口。用 `manage-services.py status main external test test-external` 查询状态。
+
+## 日常启动
+
+双击“启动苏咔云图.command”启动稳定版，双击“启动测试版.command”启动测试版。或运行：
+
+```bash
+.venv/bin/python scripts/manage-services.py start main test
+.venv/bin/python scripts/manage-services.py status main test
+```
+
+“停止测试版.command”只停止测试入口。旧8001、8765、8766入口已停用，其数据仍保留；旧试用/验收启动器在启用版本隔离后明确提示使用8002，不再加载工作区源码。不要直接使用 `uvicorn` 或重用业务 `.env` 启动测试版本。
+
+## 更新测试版本
+
+先确认 `git status --short --branch` 和当前分支。仅在 `test` 上开发；不重置其他人的改动。通过相关测试后：
+
+```bash
+.venv/bin/python scripts/manage-services.py stop test-external test
+./scripts/build-frontend.sh
+.venv/bin/python scripts/prepare-test-runtime.py
+.venv/bin/python scripts/manage-services.py start test
+```
+
+准备脚本只接受 `test`，拒绝运行中的测试服务。首次用SQLite在线备份初始化测试副本，后续更新保留测试数据，不会重新覆盖。Python依赖锁变化时需重新准备独立依赖，不复用不匹配的依赖目录。快照文件摘要记录在测试目录 `source-manifest.json`。准备操作需要本机进程及端口检查权限，不能在屏蔽这些检查的沙盒中运行。
+
+`data/runtime-isolation.json` 只登记运行目录，禁止两个环境指向同一个目录。测试启动器校验数据库和道路图位于测试专属目录，拒绝符号链接/硬链接指向共享文件，并清除继承的 `SUKA_*` 环境变量。损坏的隔离配置会报错，不回退连接业务库。此配置、源码快照、真实 `.env`、数据库、日志、依赖和构建产物均由 `.gitignore` 排除。
+
+## 本轮验证
+
+门店批量编辑原先在延迟执行的React状态更新函数中读取事件的`currentTarget`，事件结束后该值变为`null`，导致页面崩溃。现改为事件处理时立即读取字段值，再更新状态；同一路径的勾选框和下拉框一并修正。单店新增、编辑与批量编辑都纳入回归。
+
+新增5项前端回归在原代码上复现3项失败，修复后全部通过；全量前端120项、TypeScript及生产构建通过。后端门店、运行隔离、测试副本和启动器等相关回归共117项通过。真实Chrome验证原生时间输入、连续修改、清空重填、保存刷新，以及测试快照更新与服务重启后保留；没有页面异常。测试Cookie即使用稳定版Cookie名发送，也无法登录稳定业务库。
+
+验收前后稳定库逐表行摘要一致，稳定前端资源摘要一致。验收中修改的测试门店时间已恢复，临时测试会话已删除。证据保存在本机忽略目录`data/runtime-isolation-20261113/acceptance.json`和`browser-result.json`，不上传业务数据或页面截图到仓库。
+
+## 稳定版变更
+
+只有用户明确验收并要求合并或发布时，才将`test`合并到`main`并创建新的发布标签与稳定快照。不得移动已有标签，不得用测试构建覆盖稳定快照。首次冻结已保留业务库备份、逐表行摘要及静态文件摘要于 `data/runtime-isolation-20261113`；运行目录迁移不恢复或替换原业务库。

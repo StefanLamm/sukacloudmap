@@ -2,6 +2,10 @@
 set -euo pipefail
 SUKA_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SUKA_ROOT"
+if [ -e .git ] && [ "$(git branch --show-current)" = "test" ]; then
+  echo "test 工作区不能直接启动稳定业务库。请使用 scripts/manage-services.py start main 或 start test。"
+  exit 1
+fi
 SUKA_PYTHON="$SUKA_ROOT/.venv/bin/python"
 if [ ! -x "$SUKA_PYTHON" ]; then
   echo "请先按 README 安装 Python 依赖。"
