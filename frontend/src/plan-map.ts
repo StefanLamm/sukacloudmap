@@ -4,7 +4,7 @@ import {gcjPath} from './map-coordinates';
 type GeoTask={id:string;code?:string;name:string;warehouse_id:string;longitude?:unknown;latitude?:unknown;crs?:unknown};
 type Segment={source:string;verified:boolean;polyline?:number[][];crs:string};
 export type MapRoute={vehicle_id:string;plate?:string;warehouse_id?:string;task_ids:string[];segments:Segment[]};
-export const routeColors=['#d66a25','#3378b5','#985bc3','#439178','#b14761','#8a7828'];
+export const routeColors=['orange','blue','purple','green','pink','brown'].map(color=>`var(--color-data-categorical-${color})`);
 export function roadSegments(route:MapRoute){
   return route.segments.slice(0,route.task_ids.length).map((segment,index)=>({segment,index}))
     .filter(({segment})=>['LIVE','DRIVING'].includes(segment.source)&&Array.isArray(segment.polyline)&&gcjPath(segment.polyline,segment.crs).length>1);
@@ -27,11 +27,11 @@ export function buildPlanMap(warehouses:Record<string,unknown>[],tasks:Map<strin
     }
   }
   if(!vehicleId){
-    for(const id of commonIds){const task=tasks.get(id);if(task){warehouseIds.add(task.warehouse_id);points.push({...task,name:'共配 · '+task.name,color:'#898078',longitude:task.longitude,latitude:task.latitude,crs:task.crs});}}
+    for(const id of commonIds){const task=tasks.get(id);if(task){warehouseIds.add(task.warehouse_id);points.push({...task,name:'共配 · '+task.name,color:'var(--color-data-neutral)',longitude:task.longitude,latitude:task.latitude,crs:task.crs});}}
   }
   for(const warehouse of warehouses){
     if(!warehouseIds.has(String(warehouse.id)))continue;
-    points.push({id:String(warehouse.id),name:String(warehouse.name??warehouse.id),longitude:warehouse.longitude,latitude:warehouse.latitude,crs:warehouse.crs,markerLabel:'仓',color:'#693819'});
+    points.push({id:String(warehouse.id),name:String(warehouse.name??warehouse.id),longitude:warehouse.longitude,latitude:warehouse.latitude,crs:warehouse.crs,markerLabel:'仓',color:'var(--color-data-orange-5)'});
   }
   return {points,lines};
 }

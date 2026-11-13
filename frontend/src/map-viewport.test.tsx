@@ -24,10 +24,23 @@ it('模态框和transform祖先不会裁剪全屏回退，退出后恢复原布�
  const canvas=screen.getByTestId('canvas');const dialog=container.querySelector('dialog')!;
  fireEvent.click(screen.getByRole('button',{name:'全屏地图'}));
  expect(dialog.classList.contains('map-fullscreen-ancestor')).toBe(true);
+ expect(dialog.style.width).toBe('100vw');expect(dialog.style.getPropertyPriority('width')).toBe('important');
+ expect((container.firstElementChild as HTMLElement).style.transform).toBe('none');
  expect(container.firstElementChild!.classList.contains('map-fullscreen-ancestor')).toBe(true);
  expect(screen.getByTestId('canvas')).toBe(canvas);
  fireEvent.click(screen.getByRole('button',{name:'退出全屏'}));
  expect(dialog.classList.contains('map-fullscreen-ancestor')).toBe(false);
+ expect(dialog.style.width).toBe('');
  expect((container.firstElementChild as HTMLElement).style.transform).toBe('translateX(0)');
  expect(screen.getByTestId('canvas')).toBe(canvas);
+});
+
+it('全屏回退卸载时恢复滚动与已有的内联属性优先级',()=>{
+ document.body.style.setProperty('overflow','auto','important');
+ const {unmount}=render(<MapViewport label="位置地图" ready onZoomIn={()=>{}} onZoomOut={()=>{}} onResize={()=>{}}><div/></MapViewport>);
+ fireEvent.click(screen.getByRole('button',{name:'全屏地图'}));
+ expect(document.body.style.overflow).toBe('hidden');
+ unmount();
+ expect(document.body.style.overflow).toBe('auto');expect(document.body.style.getPropertyPriority('overflow')).toBe('important');
+ document.body.style.removeProperty('overflow');
 });
