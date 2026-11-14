@@ -106,6 +106,118 @@ def test_vehicle_classes_use_complete_valid_choices_not_just_shared_warehouse():
     assert result['algorithm']['class_count'] == 2
 
 
+def test_shared_metric_pricing_filters_ineligible_cars_and_binds_each_selected_car():
+    body, road = problem(cars=6, capacity=2)
+    body['warehouses'].append({**body['warehouses'][0], 'id': 'OTHER'})
+    body['vehicles'].extend([
+        {'id': 'WRONG', 'warehouse_id': 'OTHER', 'available': True, 'max_pieces': 100},
+        {'id': 'SMALL', 'warehouse_id': 'W', 'available': True, 'max_pieces': 1},
+        {'id': 'OFF', 'warehouse_id': 'W', 'available': False, 'max_pieces': 100},
+    ])
+    result = columns.select_portfolio(body, road, [plan(body, road)], seconds=3,
+                                      candidate_recipes=proposals(['0', '1'], ['2', '3']))
+    assert result['total_fee'] == '22.00'
+    assert len(result['routes']) == len({r['vehicle_id'] for r in result['routes']}) == 2
+    details = result['algorithm']
+    assert details['metric_evaluations'] == 2
+    assert details['shared_metric_proposals'] == 10
+    assert details['eligible_vehicle_options'] == 12
+    assert details['ineligible_vehicle_options'] == 4
+    for route in result['routes']:
+        assert route['vehicle_id'].startswith('V')
+        assert all(s['request']['vehicle_id'] == route['vehicle_id'] for s in route['segments'])
+    assert check_result(normalize(body), result)['valid']
+
+
+def test_shared_pricing_keeps_different_capacity_choice_sets_separate():
+    body, road = problem(n=2, cars=3, capacity=2)
+    body['vehicles'][0]['max_pieces'] = 1
+    body['vehicles'][2]['max_pieces'] = 3
+    result = columns.select_portfolio(body, road, [plan(body, road)], seconds=3,
+                                      candidate_recipes=proposals(['0', '1']))
+    assert result['total_fee'] == '11.00'
+    assert result['routes'][0]['vehicle_id'] in {'V1', 'V2'}
+    assert result['algorithm']['metric_evaluations'] == 2
+    assert result['algorithm']['shared_metric_proposals'] == 0
+    assert result['algorithm']['class_count'] == 2
+
+
+def test_shared_pricing_does_not_copy_metric_estimates_as_actual_evidence():
+    body, road = problem(n=2, cars=6)
+    old = plan(body, road)
+    road.drift = True
+    result = columns.select_portfolio(body, road, [old], seconds=3,
+                                      candidate_recipes=proposals(['0', '1']))
+    # Compact metric cost is 11, but each actual bound route costs 22. The
+    # evidence mismatch must not be promoted to a proven eleven-yuan plan.
+    assert result['total_fee'] == '22.00'
+    assert result['algorithm']['materialization_mismatch']
+    assert not result['algorithm']['finite_pool_cost_optimal']
+    assert check_result(normalize(body), result)['valid']
+    route = result['routes'][0]
+    assert all(s['request']['vehicle_id'] == route['vehicle_id'] for s in route['segments'])
+
+
+def test_ineligible_fleet_still_observes_cancellation_before_the_next_order(monkeypatch):
+    body, road = problem(n=3, cars=1, capacity=1)
+    old = plan(body, road)
+    excluded = []
+    stopped = False
+    original = columns._pricing_fleet
+
+    def prefilter(*args, **kwargs):
+        nonlocal stopped
+        fleet = original(*args, **kwargs)
+        assert not fleet
+        excluded.append(tuple(args[1]))
+        stopped = True
+        return fleet
+
+    monkeypatch.setattr(columns, '_pricing_fleet', prefilter)
+    result = columns.select_portfolio(body, road, [old], seconds=3,
+        cancelled=lambda: stopped, candidate_recipes=proposals(['0', '1'], ['1', '2'], ['0', '2']))
+    assert len(excluded) == 1
+    assert result['total_fee'] == old['total_fee']
+    assert result['algorithm']['stop_reason'] == 'CANCELLED'
+    assert check_result(normalize(body), result)['valid']
+
+
+@pytest.mark.parametrize('common', ['5', '5.5'])
+def test_all_optional_column_dominated_by_common_never_inflates_the_model(common):
+    body, road = problem(n=2, cars=6, common=common)
+    old = plan(body, road)
+    result = columns.select_portfolio(body, road, [old], seconds=3,
+                                      candidate_recipes=proposals(['0', '1']))
+    assert result['total_fee'] == old['total_fee']
+    assert not result['routes']
+    assert result['algorithm']['column_count'] == 0
+    assert result['algorithm']['common_dominated_metric_groups'] == 1
+    assert result['algorithm']['common_dominated_vehicle_options'] == 6
+    assert result['algorithm']['finite_pool_cost_optimal']
+
+
+def test_dominated_proposal_filter_keeps_whole_source_hints_and_mandatory_columns():
+    body, road = problem(cars=2, capacity=2)
+    road.matrix['W', '2']['meters'] = 249000
+    old = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3'])])
+    assert old['total_fee'] == '261.00'
+    result = columns.select_portfolio(body, road, [old], seconds=3,
+                                      candidate_recipes=proposals(['2', '3']))
+    assert result['total_fee'] == '211.00'
+    assert result['algorithm']['common_dominated_metric_groups'] == 1
+    assert result['algorithm']['finite_pool_cost_optimal']
+    assert check_result(normalize(body), result)['valid']
+
+    body['tasks'][2]['common_unit_price'] = None
+    mandatory = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3'])])
+    required = columns.select_portfolio(body, road, [mandatory], seconds=3,
+                                        candidate_recipes=proposals(['2', '3']))
+    assert required['total_fee'] == '261.00'
+    assert required['algorithm']['common_dominated_metric_groups'] == 0
+    assert any('2' in route['task_ids'] for route in required['routes'])
+    assert check_result(normalize(body), required)['valid']
+
+
 def test_cheaper_order_can_dominate_incumbent_without_breaking_model_hint():
     body, road = problem(n=2, cars=1)
     road.matrix['1', '0']['meters'] = 100

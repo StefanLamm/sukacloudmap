@@ -64,6 +64,35 @@ def _order(data, value):
     return ids if len(set(ids)) == len(ids) else None
 
 
+def _pricing_fleet(data, ids, vehicle_ids, control=None):
+    """Precheck the exact eligibility used by the metric-only evaluator.
+
+    A metric proposal depends on the car's warehouse and capacity, not its
+    plate/identity. This grouping applies to compact proposals only: every
+    selected physical car still gets its own bound evidence below.
+    """
+    selected = []
+    for index, task_id in enumerate(ids):
+        if index and index % 64 == 0 and control:
+            control()
+        selected.append(data['tasks'][task_id])
+    warehouse = selected[0]['warehouse_id']
+    signature = selected[0]['signature']
+    if signature is None or any(t['warehouse_id'] != warehouse or t['signature'] != signature
+                                for t in selected):
+        return []
+    pieces = sum(t['pieces'] for t in selected)
+    groups = {}
+    for index, vehicle_id in enumerate(vehicle_ids):
+        if index and index % 64 == 0 and control:
+            control()
+        vehicle = data['vehicles'][vehicle_id]
+        if (vehicle['available'] and vehicle['warehouse_id'] == warehouse
+                and vehicle['max_pieces'] >= pieces):
+            groups.setdefault((warehouse, vehicle['max_pieces']), []).append(vehicle_id)
+    return list(groups.values())
+
+
 def _check_complete(data, result):
     """Validate caller evidence and actual current prices, never its check flag."""
     try:
@@ -340,11 +369,16 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
     column_deadline = started + budget * .6
     data = normalize(body)
     priced = {i for i, task in data['tasks'].items() if task['common_unit_price'] is not None}
+    common_cents = {i: _cents(common_fee(data['tasks'][i]['pieces'], data['tasks'][i]['common_unit_price']))
+                    for i in priced}
     best = assemble(data, [], priced, set(data['tasks']) - priced)
     diagnostics = {'scope': 'CURRENT_INPUT_FINITE_ROUTE_POOL_ONLY', 'solver': 'not_started',
                    'finite_pool_cost_optimal': False, 'optimality_proven': False,
                    'global_optimality_proven': False, 'objective_units': 'ACTUAL_INTEGER_CENTS',
                    'source_plan_count': 0, 'current_complete_plans': 0, 'metric_evaluations': 0,
+                   'eligible_vehicle_options': 0, 'ineligible_vehicle_options': 0,
+                   'shared_metric_proposals': 0,
+                   'common_dominated_metric_groups': 0, 'common_dominated_vehicle_options': 0,
                    'complete_recipe_count': 0, 'complete_recipes_priced': 0,
                    'complete_recipes_missing_metrics': 0,
                    'invalid_source_plans': 0, 'invalid_recipes': 0, 'unknown_metric_recipes': 0,
@@ -527,22 +561,57 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                 orders.setdefault(ids, None)
         diagnostics['unique_orders'] = len(orders)
         report('REPRICE_COLUMNS')
-        # Every order is examined for every available physical car. If interrupted,
-        # equivalence classes below reflect exactly these partial choice sets.
+        # Price warehouse/capacity-equivalent compact proposals once. The metric
+        # evaluator uses a vehicle-independent known_segment(origin, destination)
+        # lookup; grouping never copies a receipt or materialized route. Full
+        # evidence and all physical-car constraints are rechecked after selection.
+        # If interrupted, model classes reflect exactly the retained choice sets.
         pricing_finished = False
         for ids in orders:
-            for vehicle_id in columns:
+            # Even an entirely ineligible order must honor cancellation and
+            # yield the remaining allowance to model construction/solving.
+            control()
+            if monotonic() >= column_deadline or column_count >= MAX_COLUMNS:
+                diagnostics['candidate_pool_truncated'] = True
+                break
+            fleet = _pricing_fleet(data, ids, columns, control)
+            eligible = sum(map(len, fleet))
+            diagnostics['eligible_vehicle_options'] += eligible
+            diagnostics['ineligible_vehicle_options'] += len(columns) - eligible
+            for group in fleet:
                 control()
                 if monotonic() >= column_deadline or column_count >= MAX_COLUMNS:
                     diagnostics['candidate_pool_truncated'] = True
                     pricing_finished = True
                     break
                 diagnostics['metric_evaluations'] += 1
-                row = evaluate_candidate(data, vehicle_id, list(ids), road, control)
+                row = evaluate_candidate(data, group[0], list(ids), road, control)
                 if row is None:
                     diagnostics['unknown_metric_recipes'] += 1
                     continue
-                remember(row)
+                if row['errors'] or row['fee'] is None:
+                    continue
+                # An all-optional route that costs at least its tickets'
+                # configured common delivery cannot improve any allocation:
+                # outsourcing that entire route keeps coverage and frees a
+                # vehicle. Equal cents also favors common's zero dedicated
+                # meters/cars. Do not apply this to mandatory tasks or to the
+                # separately protected complete-source columns/hints.
+                if (all(i in common_cents for i in ids)
+                        and _cents(row['fee']) >= sum(common_cents[i] for i in ids)):
+                    diagnostics['common_dominated_metric_groups'] += 1
+                    diagnostics['common_dominated_vehicle_options'] += len(group)
+                    continue
+                for index, vehicle_id in enumerate(group):
+                    control()
+                    if column_count >= MAX_COLUMNS:
+                        diagnostics['candidate_pool_truncated'] = True
+                        pricing_finished = True
+                        break
+                    remember({**row, 'vehicle_id': vehicle_id})
+                    diagnostics['shared_metric_proposals'] += int(index > 0)
+                if pricing_finished:
+                    break
             if pricing_finished:
                 break
         control()

@@ -120,7 +120,9 @@ def test_daily_runs_different_seeds_pools_complete_allocations_and_keeps_lower_f
     result = optimize_deep(body, road, .5, seed=18, progress=progress.append)
     assert result['total_fee'] == first['total_fee'] == '14.00'
     assert len(seen) >= 4 and len({r['seed'] for r in seen}) == len(seen)
-    assert result['algorithm']['complete_round_allocations'] == 2
+    # The current-input all-common seed and both distinct complete source
+    # allocations remain protected, including the more expensive alternative.
+    assert result['algorithm']['complete_round_allocations'] == 3
     assert result['algorithm']['distinct_route_count'] >= 3
     assert result['algorithm']['mode'] == 'DAILY_DEEP_PORTFOLIO'
     assert result['algorithm']['final_validation']['mode'] == 'FIXTURE_VALIDATED'
