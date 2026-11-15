@@ -39,7 +39,10 @@ def evaluate_candidate(data, vehicle_id, ids, road, control=None):
         if control:control()
         try:segment=lookup(origin,task)
         except (KeyError,ValueError,TypeError,RoadError):return None
-        if not isinstance(segment,dict):return None
+        if not isinstance(segment,dict):
+            diagnostics=getattr(road,'search_diagnostics',None)
+            if diagnostics is not None:diagnostics.missing(origin,task)
+            return None
         meters,seconds=segment.get('meters'),segment.get('seconds')
         if any(isinstance(n,bool) or not isinstance(n,int) or n<0 for n in (meters,seconds)):return None
         try:

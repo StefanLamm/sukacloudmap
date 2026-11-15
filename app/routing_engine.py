@@ -413,6 +413,8 @@ def optimize_legacy(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fal
     common_ids = {i for i, t in tasks.items() if t['common_unit_price'] is not None}
     unassigned = set(tasks) - common_ids; reasons = {}; candidates = []
     best = assemble(data, [], common_ids, unassigned)
+    diagnostics = getattr(road, 'search_diagnostics', None)
+    if diagnostics is not None:diagnostics.plan(best, 'LEGACY_BASELINE')
     baseline = best['total_fee'] if not unassigned else None
     stop_reason = 'SEARCH_COMPLETED'; max_evaluations = 20000
     # Reserve a small part of the wall budget for the final independent proof.
@@ -424,9 +426,11 @@ def optimize_legacy(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fal
     def evaluate(v, ids):
         nonlocal evaluations, failures
         control(); evaluations += 1
+        if diagnostics is not None:diagnostics.counts['evaluated_candidates'] += 1
         r = evaluate_route(data, v['id'], ids, road, control)
         if r['errors']:
             failures += 1
+            if diagnostics is not None:diagnostics.reject(r['errors'])
             for i in ids: reasons[i] = '；'.join(dict.fromkeys(e['message'] for e in r['errors']))
         elif r['fee'] is not None:
             candidates.append(r)
@@ -451,7 +455,9 @@ def optimize_legacy(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fal
         selected=[r for r in best['routes'] if r['vehicle_id'] != candidate['vehicle_id'] and not covered.intersection(r['task_ids'])]+[candidate]
         used={i for r in selected for i in r['task_ids']}
         trial=assemble(data,selected,common_ids-used,unassigned-used,reasons)
-        if rank(trial)<rank(best):best=trial
+        if rank(trial)<rank(best):
+            best=trial
+            if diagnostics is not None:diagnostics.plan(best, 'LEGACY_COMPLETE_INCUMBENT')
     pending_routes = None
     try:
         if exact:

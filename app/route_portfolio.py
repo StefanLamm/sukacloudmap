@@ -12,7 +12,8 @@ from app.route_search import JointSearch, optimize_joint
 
 def _phase(search,name,seconds,action):
     search.control()
-    before=time.monotonic();deadline=search.compute_elapsed()+min(max(0,seconds),search.remaining())
+    before=time.monotonic();compute_before=search.compute_elapsed();before_fee=search.best['total_fee']
+    deadline=compute_before+min(max(0,seconds),search.remaining())
     original=search.control;original_remaining=search.remaining;search.phase=name
     def controlled():
         original()
@@ -27,7 +28,10 @@ def _phase(search,name,seconds,action):
     finally:
         search.control=original
         search.remaining=original_remaining
-    return {'method':name,'elapsed_seconds':round(time.monotonic()-before,4),'stop_reason':stop,
+    return {'method':name,'elapsed_seconds':round(time.monotonic()-before,4),
+            'compute_seconds':round(search.compute_elapsed()-compute_before,4),
+            'before_fee':before_fee,'fee_reduction':str(Decimal(before_fee)-Decimal(search.best['total_fee'])),
+            'stop_reason':stop,
             'best_fee':search.best['total_fee'],'dedicated_vehicles':len(search.best_routes),
             'unassigned':len(search.best['unassigned']),'candidate_count':len(search.pool),
             **({'details':details} if isinstance(details,dict) else {})}
@@ -47,7 +51,9 @@ def _native(search,seconds,strategy,first,seed,penalty_multiplier=1):
     specs,diagnostics=generate_ortools_candidates(search.data,
         lambda vehicle,a,b:lookup(a,b),max(0,seconds),seed,search.cancelled,
         initial_routes=search.best_routes,vehicle_independent=True,strategy=strategy,
-        first_strategy=first,common_penalty_multiplier=penalty_multiplier,on_batch=batch)
+        first_strategy=first,common_penalty_multiplier=penalty_multiplier,on_batch=batch,
+        candidate_retention=getattr(getattr(search.road,'deep_experiments',None),'native_candidate_retention','first'),
+        candidate_stream_observer=getattr(search.road,'native_candidate_stream_observer',None))
     # Include any final trace not emitted because its native slice timed out.
     if search.remaining()>.05:batch(specs)
     return diagnostics

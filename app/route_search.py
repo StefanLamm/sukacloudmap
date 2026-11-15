@@ -38,6 +38,8 @@ class JointSearch:
         self.best_routes=[];self.best_rank=self.rank([])
         self.cars=[];self.initial_accepted=False;self.initial_route_hints=[];self.initial_revalidation_required=False
         if initial_result is not None:self.adopt_initial(initial_result)
+        diagnostics=getattr(road,'search_diagnostics',None)
+        if diagnostics is not None:diagnostics.plan(self.best,'SEARCH_INITIAL')
 
     def control(self):
         if self.cancelled():raise StopSearch('CANCELLED')
@@ -111,6 +113,8 @@ class JointSearch:
 
     def failed_route(self,route,ids):
         self.failures+=1
+        diagnostics=getattr(self.road,'search_diagnostics',None)
+        if diagnostics is not None:diagnostics.reject(route['errors'])
         if any(e['code'].startswith(('ROAD_','DRIVING_','TRUCK_','COORDINATES_')) for e in route['errors']):self.network_failures+=1
         reason='；'.join(dict.fromkeys(e['message'] for e in route['errors']))
         if route.get('_estimated'):reason='道路参考候选：'+reason
@@ -119,8 +123,13 @@ class JointSearch:
     def evaluate(self, vid, ids):
         self.control();key=(vid,tuple(ids))
         if key in self.memo:
-            self.hits+=1;return self.memo[key]
+            self.hits+=1
+            diagnostics=getattr(self.road,'search_diagnostics',None)
+            if diagnostics is not None:diagnostics.counts['evaluation_cache_hits']+=1
+            return self.memo[key]
         self.evaluations+=1
+        diagnostics=getattr(self.road,'search_diagnostics',None)
+        if diagnostics is not None:diagnostics.counts['evaluated_candidates']+=1
         from app.route_metrics import evaluate_candidate
         route=evaluate_candidate(self.data,vid,list(ids),self.road,self.control)
         if route is None:route=evaluate_route(self.data,vid,list(ids),self.road,self.control)
@@ -168,6 +177,8 @@ class JointSearch:
         actual=self.rank([self.compact(r) for r in full])
         if not force and actual>=self.best_rank:return False
         self.best=result;self.best_routes=[self.compact(r) for r in full];self.best_rank=actual
+        diagnostics=getattr(self.road,'search_diagnostics',None)
+        if diagnostics is not None:diagnostics.plan(result,self.phase)
         return True
 
     def adopt_initial(self, result):
