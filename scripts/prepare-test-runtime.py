@@ -107,7 +107,8 @@ def initialize_reference_graph(source, target):
 def write_test_config(target, stable_config):
     # Stable remains the initialization source, even if an old test .env is
     # present but its database has not yet been created. Existing test choices
-    # (keys, request limits and optimizer profile) survive ordinary refreshes.
+    # (keys, enabled flags and optimizer profile) survive ordinary refreshes.
+    # Legacy request ceilings are migrated to the permanent unlimited policy.
     stable_settings = file_settings(stable_config)
     source = make_url(stable_settings.database_url.get_secret_value())
     if source.get_backend_name() != 'sqlite' or not source.database or not Path(source.database).is_absolute():
@@ -126,6 +127,8 @@ def write_test_config(target, stable_config):
                   runtime_label='测试版 · 独立数据，修改不影响稳定版')
     lines = []
     for key, value in values.items():
+        if key in {'truck_job_max_calls','driving_job_max_calls'}:
+            value='unlimited'
         if value is None:
             continue
         if isinstance(value, SecretStr):

@@ -198,6 +198,8 @@ def test_explicit_native_trace_records_late_identity_without_enlarging_first_poo
     model.task_nodes = {1: 'late'}
     model.ids = ['late']
     model.retention = None
+    model.stage_trace = None
+    model.trace_scope = None
     model.candidate_specs = {('old', (str(index),)): {} for index in range(10000)}
     trace = []
     model.candidate_stream_observer = trace.append

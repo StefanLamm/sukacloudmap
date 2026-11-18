@@ -211,12 +211,13 @@ def refresh_application(case_file,study_file,application_report_file,*,output='s
         cache=PrivateCache(target/'private-cache.db')
         private_settings=settings.model_copy(update={'amap_reference_graph_path':network_graph,
             'database_url':SecretStr('sqlite:///'+str(cache.path))})
-        def cancelled():return time.monotonic()-started_monotonic>=budget_seconds or time.time()>=deadline-30
+        wall_deadline=min(started_monotonic+budget_seconds,time.monotonic()+deadline-30-time.time())
         def control():
-            if cancelled():raise StopSearch('REFRESH_WALL_BUDGET')
+            if time.monotonic()>=wall_deadline:raise StopSearch('WALL_BUDGET')
         network_started_at=int(time.time())
-        road=DrivingRoad(private_settings,None,cache.get,cache.put,transport=transport,cancelled=cancelled,
-                         limiter=limiter,force_refresh=True,allow_historical=False)
+        road=DrivingRoad(private_settings,None,cache.get,cache.put,transport=transport,
+                         limiter=limiter,force_refresh=True,allow_historical=False,
+                         production_planning=True,wall_deadline=wall_deadline,network_control=control)
         if road.graph is None:road.graph=ReferenceGraph(network_graph)  # Explicit private graph in isolated tests too.
         require(Path(road.graph.path).resolve()==network_graph.resolve(),'Refresh adapter escaped its private graph')
         try:

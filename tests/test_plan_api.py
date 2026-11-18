@@ -51,9 +51,9 @@ def plan(c,id):
 def test_automatic_reoptimization_receives_incumbent_and_compares_fees(basis,monkeypatch):
     import app.plan_service as service
     original=service.optimize_deep;observed=[]
-    def recording(body,road,budget,seed,cancelled,*,initial_result=None,progress=None):
+    def recording(body,road,budget,seed,cancelled,*,initial_result=None,progress=None,wall_budget_seconds=None):
         observed.append(deepcopy(initial_result))
-        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress)
+        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress,wall_budget_seconds=wall_budget_seconds)
     monkeypatch.setattr(service,'optimize_deep',recording)
     c,*_=basis;snapshot=frozen(basis)
     first=waited(c,new_job(c,snapshot));assert first['status']=='COMPLETED'
@@ -115,7 +115,7 @@ def test_only_latest_head_can_be_modified_and_strict_requests(basis):
     c,w,q,s,s2,v=basis;snapshot=frozen(basis)
     j=waited(c,new_job(c,snapshot));p=plan(c,j['plan_id'])
     assert c.post('/api/planning/jobs',json={'snapshot_id':snapshot,'expected_head':0}).status_code==409
-    for kw in [{'expected_head':True},{'call_limit':1},{'kind':'MANUAL'},{'seed':-1},{'source':'FIXTURE'}]:
+    for kw in [{'expected_head':True},{'kind':'MANUAL'},{'seed':-1},{'source':'FIXTURE'}]:
         payload={'snapshot_id':snapshot,'expected_head':1,**kw}
         assert c.post('/api/planning/jobs',json=payload).status_code==422
     c.headers.pop('x-csrf-token')
@@ -157,11 +157,11 @@ def test_cancel_and_writer_not_held_during_search(basis,app,monkeypatch):
     import app.plan_service as service
     original=service.optimize_deep
     entered=__import__('threading').Event()
-    def slow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None):
+    def slow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None,wall_budget_seconds=None):
         entered.set()
         until=time.monotonic()+3
         while not cancelled() and time.monotonic()<until:time.sleep(.02)
-        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress)
+        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress,wall_budget_seconds=wall_budget_seconds)
     monkeypatch.setattr(service,'optimize_deep',slow)
     c,w,q,s,s2,v=basis;snapshot=frozen(basis);j=new_job(c,snapshot)
     assert entered.wait(2)

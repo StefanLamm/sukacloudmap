@@ -14,6 +14,9 @@ def allocate_dedicated(body, draft, road, control=None, optimize_routes=False):
     inputs use bounded insertion searches. Fixed-stop relative order is retained
     unless the user also enabled route optimization.
     """
+    from app.search_policy import production_search_control
+    control = production_search_control(road, control)
+    count_limited = not getattr(road, 'production_planning', False)
     automatic=list(draft.get('auto_dedicated_ids', []))
     if not automatic:
         return (optimize_manual if optimize_routes else recalculate)(body,draft,road,control)
@@ -36,7 +39,7 @@ def allocate_dedicated(body, draft, road, control=None, optimize_routes=False):
     exact=(len(automatic)<=6 and len(cars)<=6 or len(automatic)<=2 and len(cars)<=50 or len(automatic)<=3 and len(cars)<=12) and sum(len(r['task_ids']) for r in fixed)+len(automatic)<=8
     def tick():
         if control:control()
-        if candidates>=20000:raise StopSearch('CANDIDATE_BUDGET')
+        if count_limited and candidates>=20000:raise StopSearch('CANDIDATE_BUDGET')
     def rank(result):
         errors=[e for r in result['routes'] for e in r['errors'] if e['code']!='ROAD_TIME_UNVERIFIED']
         return (sum(row['task_id'] in automatic for row in result['unassigned']),len(errors),

@@ -27,6 +27,8 @@ class JointSearch:
         self.started=time.monotonic();self.seconds=max(0,seconds)
         self.search_seconds=max(0,seconds-min(.25,seconds*.05))
         self.cancelled=cancelled;self.seed=seed;self.rng=random.Random(seed)
+        from app.search_policy import production_search_control
+        self.production_control=production_search_control(road, cancelled=cancelled)
         self.evaluations=self.hits=self.failures=self.network_failures=0
         self.max_evaluations=min(250000,max(20000,int(seconds*250)))
         self.pool={};self.memo={};self.raw=OrderedDict();self.pack_diagnostics=[]
@@ -37,9 +39,10 @@ class JointSearch:
         if initial_result is not None:self.adopt_initial(initial_result)
 
     def control(self):
+        if self.production_control is not None:self.production_control()
         if self.cancelled():raise StopSearch('CANCELLED')
         if time.monotonic()-self.started>=self.search_seconds:raise StopSearch('TIME_BUDGET')
-        if self.evaluations>=self.max_evaluations:raise StopSearch('CANDIDATE_BUDGET')
+        if not getattr(self.road, 'production_planning', False) and self.evaluations>=self.max_evaluations:raise StopSearch('CANDIDATE_BUDGET')
 
     def remaining(self):return max(0,self.search_seconds-(time.monotonic()-self.started))
 

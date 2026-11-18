@@ -157,3 +157,27 @@ def test_optional_refinement_keeps_proved_improvement_on_deadline_and_restores_c
     assert details['stop_reason'] == 'TIME_BUDGET' and details['fee_reduction'] == '198.00'
     assert road.call_limit == original_limit and initial == original
     assert check_result(normalize(body), result)['valid']
+
+
+@pytest.mark.parametrize('reason',['CANCELLED','WALL_BUDGET'])
+def test_local_phase_returns_its_checked_improvement_before_global_stop(monkeypatch,reason):
+    from app.route_deep import _Budget, _optional_refinement
+    import app.route_adaptive_cycles as cycles
+    from app.route_experiments import DeepExperiments
+    from app.routing_engine import StopSearch, normalize
+    body,road=problem(n=4,cars=2,common=None,capacity=4)
+    initial=plan(body,road,[('V0',['0','2']),('V1',['1','3'])])
+    road.deep_experiments=DeepExperiments(generation_selection_loop=True)
+    state={'cancelled':False}
+    def refine(search,**kwargs):
+        candidate=search.evaluate('V0',['0','1','2','3'])
+        search.quick_exchange(candidate)
+        assert search.best['total_fee']<initial['total_fee']
+        if reason=='CANCELLED': state['cancelled']=True
+        else: search.road.wall_deadline=0
+        raise StopSearch(reason)
+    monkeypatch.setattr(cycles,'expand_candidate_cycles',refine)
+    result,details=_optional_refinement(normalize(body),road,initial,_Budget(road,10,lambda:state['cancelled']),
+                                       0,lambda:state['cancelled'],'cycles')
+    assert result['total_fee']<initial['total_fee'] and not result['unassigned']
+    assert details['stop_reason']==reason

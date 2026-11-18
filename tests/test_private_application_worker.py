@@ -24,7 +24,7 @@ def test_private_settings_and_spawn_payload_keep_real_profile_and_local_database
     assert payload['environment']=='development'  # The frozen adapter deliberately skips graph autoload in test mode.
     assert payload['public_origin']=='http://127.0.0.1:12345' and payload['allowed_hosts']==['127.0.0.1']
     assert not payload['driving_live_calls_enabled'] and not payload['truck_live_calls_enabled']
-    assert payload['driving_job_max_calls']==payload['truck_job_max_calls']==0
+    assert payload['driving_job_max_calls'] is None and payload['truck_job_max_calls'] is None
     assert payload['amap_web_service_key']==module.PRIVATE_KEY_PLACEHOLDER=='private-no-network-placeholder'
     assert all(payload[key] is None for key in ['amap_js_key','amap_security_js_code'])
     assert payload['amap_reference_graph_path']==str(tmp_path/'copy-graph.db')

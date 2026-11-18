@@ -4,6 +4,7 @@ import logging
 import math
 import threading
 import time
+from time import time as epoch_now
 
 from sqlalchemy import func, select
 
@@ -13,10 +14,23 @@ from app.models import Account, InputSnapshot, PlanningJob, PlanVersion, RoadCac
 from app.planning_inputs import content_hash, encode, input_context
 from app.road_service import DrivingRoad, SyntheticRoad, TruckRoad
 from app.auto_dedicated import allocate_dedicated
-from app.routing_engine import RoadError, check_result, compare_manual, normalize, optimize, optimize_manual, recalculate
+from app.routing_engine import RoadError, StopSearch, check_result, compare_manual, normalize, optimize, optimize_manual, recalculate
 from app.route_deep import optimize_deep
+from app.source_provenance import collect_source_provenance
 
 log = logging.getLogger('suka.planning')
+
+
+def planning_wall_budget_seconds(compute_seconds, explicit=None):
+    return explicit if explicit is not None else compute_seconds+min(1800,max(120,compute_seconds*2))
+
+
+def default_wall_wait_policy():
+    return {'formula':'compute + min(1800, max(120, 2 * compute))',
+            'extra_compute_multiplier':2,'extra_min_seconds':120,'extra_max_seconds':1800,
+            'includes_queue':True,'includes_road_wait':True,
+            'scope':'ACCEPTANCE_TO_PUBLICATION_INCLUDING_QUEUE_PREPARATION_ROADS_AND_VERIFICATION',
+            'authority':'SERVER_DEADLINE'}
 
 
 def head(db, day, group_id=None):
@@ -67,6 +81,8 @@ def append_version(db, snapshot, result, actor_id, actor_name, parent=None, job_
 
 
 def job_view(db, job):
+    payload=json.loads(job.request)
+    compute_seconds=payload.get('budget_seconds',15)
     plan = db.scalar(select(PlanVersion).where(PlanVersion.job_id == job.id))
     result = json.loads(job.result) if job.result else None
     progress = result.get('_progress') if isinstance(result, dict) else None
@@ -83,7 +99,9 @@ def job_view(db, job):
         progress={**(progress if isinstance(progress,dict) else {}),'stage':job.status,
                   'message':job.error_message or ('已取消，未保存新方案' if job.status=='CANCELLED' else '计算未完成，未保存新方案')}
     return {'id': job.id, 'delivery_date': job.delivery_date, 'group_id':job.group_id, 'status': job.status, 'kind': job.kind,
-            'cancel_requested': job.cancel_requested, 'budget_seconds':json.loads(job.request).get('budget_seconds',15), 'created_at': stamp(job.created_at), 'started_at': stamp(job.started_at),
+            'cancel_requested': job.cancel_requested, 'budget_seconds':compute_seconds,
+            'wall_budget_seconds':planning_wall_budget_seconds(compute_seconds,payload.get('wall_budget_seconds')),
+            'created_at': stamp(job.created_at), 'started_at': stamp(job.started_at),
             'finished_at': stamp(job.finished_at), 'error_code': job.error_code, 'error_message': job.error_message,
             'plan_id': plan.id if plan else None, 'progress':progress,
             'summary': {'total_fee': result['total_fee'], 'valid': result['check']['valid'],
@@ -213,6 +231,34 @@ class PlanningRunner:
             if job is None or job.status!='RUNNING' or job.cancel_requested or job.lease_until is None or job.lease_until<now():return False
             job.lease_until=now()+60;db.commit();return True
     def run(self, job_id):
+        job_started=time.monotonic()
+        job_epoch_started=epoch_now()
+        wall_state=None
+        result=None
+        result_verified=False
+        def wait_audit(instant=None):
+            if wall_state is None:return {}
+            instant=time.monotonic() if instant is None else instant
+            elapsed=max(0.,instant-job_started)
+            total=wall_state['queue_wait_seconds']+elapsed
+            return {'queue_wait_seconds':round(wall_state['queue_wait_seconds'],6),
+                    'requested_compute_budget_seconds':wall_state['compute_budget_seconds'],
+                    'job_elapsed_seconds':round(elapsed,6),
+                    'total_wait_elapsed_seconds':round(total,6),
+                    'deadline_overrun_seconds':round(max(0.,total-wall_state['wall_budget_seconds']),6),
+                    'job_wall_budget_seconds':wall_state['wall_budget_seconds'],
+                    'job_wall_deadline':wall_state['deadline'],
+                    'job_wall_deadline_epoch':wall_state['deadline_epoch'],
+                    'queue_clock_policy':'CREATED_AT_SECONDS_FLOOR_PLUS_WORKER_MONOTONIC; CONSERVATIVE_PRECISION'}
+        def wall_publication_gate(current, checked_result):
+            instant=time.monotonic()
+            checked_result.setdefault('algorithm',{}).update(wait_audit(instant))
+            if instant<wall_state['deadline']:return False
+            checked_result['algorithm'].update(stop_reason='WALL_BUDGET',publication='NOT_PUBLISHED_WALL_DEADLINE')
+            current.result=encode(checked_result);current.status='FAILED';current.error_code='WALL_BUDGET'
+            current.error_message='总等待截止（含排队），已校验结果保留在任务中，未新增业务方案。'
+            current.finished_at=now()
+            return True
         heartbeat_stop=threading.Event();lost_lease=threading.Event();heartbeat_thread=None
         def heartbeat():
             while not heartbeat_stop.wait(10):
@@ -226,6 +272,20 @@ class PlanningRunner:
                 job = db.get(PlanningJob, job_id)
                 if job is None:return
                 payload = json.loads(job.request)
+                # Acceptance, queue, preparation, search and verification share
+                # one wall allowance. created_at is a seconds-floor timestamp;
+                # using that lower bound can shorten, never extend, its cutoff.
+                compute_budget=payload['budget_seconds']
+                wall_budget=planning_wall_budget_seconds(compute_budget,payload.get('wall_budget_seconds'))
+                if isinstance(wall_budget,bool) or not math.isfinite(float(wall_budget)) or wall_budget<=0:
+                    raise ApiError(422,'WALL_BUDGET_INVALID','任务总等待时限无效，请重新提交规划。')
+                accepted_epoch=float(job.created_at)
+                queue_wait=max(0.,job_epoch_started-accepted_epoch)
+                wall_deadline=job_started+max(0.,wall_budget-queue_wait)
+                wall_state={'queue_wait_seconds':queue_wait,'wall_budget_seconds':wall_budget,
+                            'compute_budget_seconds':compute_budget,
+                            'deadline':wall_deadline,'deadline_epoch':accepted_epoch+wall_budget}
+                if time.monotonic()>=wall_deadline:raise StopSearch('WALL_BUDGET')
                 snapshot = db.get(InputSnapshot, job.snapshot_id); body = verified_body(snapshot)
                 parent_result = verified_body(db.get(PlanVersion,payload['parent_id']))['result'] if payload.get('parent_id') else None
                 latest=head(db,job.delivery_date,job.group_id)
@@ -239,6 +299,9 @@ class PlanningRunner:
                         current=db.get(PlanningJob,job_id)
                         last_poll[:] = [time.monotonic(),current is None or current.status!='RUNNING' or current.cancel_requested or current.lease_until is None or current.lease_until<now()]
                 return last_poll[1]
+            def wall_control():
+                if cancelled():raise StopSearch('CANCELLED')
+                if time.monotonic()>=wall_deadline:raise StopSearch('WALL_BUDGET')
             last_progress=[0,None]
             def progress(value):
                 state=public_progress(value)
@@ -270,8 +333,6 @@ class PlanningRunner:
                     if row: row.content=encode(item); row.expires_at=now()+3600
                     else: db.add(RoadCache(key=key,content=encode(item),expires_at=now()+3600))
                     db.commit()
-            caps = [value for value in [payload.get('call_limit'),self.settings.road_job_max_calls] if value is not None]
-            limit = (min(caps) if caps else None) if self.settings.road_calls_enabled else 0
             adapter = DrivingRoad if self.settings.planning_route_mode == 'DRIVING' else TruckRoad
             # Daily deep planning first searches the measured reference graph.
             # Its final phase always validates selected roads independently;
@@ -279,7 +340,11 @@ class PlanningRunner:
             manual_refresh=job.kind=='MANUAL' and payload.get('refresh_roads',False)
             adapter_options={'allow_historical':not manual_refresh,
                              'force_refresh':bool(manual_refresh and self.settings.road_calls_enabled)} if adapter is DrivingRoad else {}
-            road = SyntheticRoad(normalize(body)) if self.settings.planning_road_source == 'TEST_GRID' else adapter(self.settings, limit, cache_get, cache_put, cancelled=cancelled,**adapter_options)
+            wall_control()
+            road = SyntheticRoad(normalize(body)) if self.settings.planning_road_source == 'TEST_GRID' else adapter(
+                self.settings,None,cache_get,cache_put,cancelled=cancelled,
+                production_planning=True,wall_deadline=wall_deadline,network_control=wall_control,**adapter_options)
+            wall_control()
             if isinstance(road,DrivingRoad):
                 # Only the provider's ordinary-driving current-reference paths
                 # are reusable across local vehicle/ETD bindings; truck proof is not.
@@ -287,26 +352,34 @@ class PlanningRunner:
                     total_bytes=0
                     rows=cache_db.scalars(select(RoadCache).order_by(RoadCache.expires_at.desc()).limit(10000).execution_options(yield_per=50))
                     for cached_row in rows:
-                        if cancelled():break
+                        wall_control()
                         total_bytes+=len(cached_row.content)
                         if total_bytes>128*1024*1024:break
                         try:
                             item=json.loads(cached_row.content)
                             if content_hash(item['request'])==cached_row.key:road.seed_reference_cache([item])
                         except (KeyError,ValueError,TypeError):continue
+            preparation_seconds=time.monotonic()-job_started
+            wall_control()
             if job.kind == 'OPTIMIZE':
+                deep_options = dict(initial_result=incumbent_result, progress=progress,
+                                    wall_budget_seconds=max(0.,wall_deadline-time.monotonic()))
+                test_experiments = getattr(self.settings, 'planning_deep_experiments', None)
+                if test_experiments is not None:
+                    if self.settings.environment != 'test':
+                        raise ApiError(409,'TEST_EXPERIMENTS_FORBIDDEN','规划实验开关仅允许隔离 test 环境。')
+                    deep_options['experiments'] = dict(test_experiments)
                 result = optimize_deep(body, road, payload['budget_seconds'], payload['seed'], cancelled,
-                                       initial_result=incumbent_result,progress=progress)
+                                       **deep_options)
+                if test_experiments is not None:
+                    result.setdefault('algorithm', {})['test_experiments_override'] = dict(test_experiments)
                 if incumbent_result:compare_manual(result,incumbent_result)
             else:
-                from app.routing_engine import StopSearch
                 started = time.monotonic()
                 started_io=float(getattr(road,'io_seconds',0))
-                wall_limit=payload['budget_seconds']+min(1800,max(120,payload['budget_seconds']*2))
                 def control():
-                    if cancelled(): raise StopSearch('CANCELLED')
+                    wall_control()
                     elapsed=time.monotonic()-started
-                    if elapsed>wall_limit:raise StopSearch('WALL_BUDGET')
                     if elapsed-max(0,float(getattr(road,'io_seconds',0))-started_io)>payload['budget_seconds']:raise StopSearch('TIME_BUDGET')
                 try: result = allocate_dedicated(body,payload['draft'],road,control,optimize_routes=payload.get('optimize_routes',False))
                 except StopSearch as exc:
@@ -317,10 +390,19 @@ class PlanningRunner:
                 result['confirmable']=False;result['road_source']='FIXTURE';result['execution_scope']='TEST_ONLY'
             if job.kind == 'OPTIMIZE':
                 verify_deep_result(body,result,road,cancelled())
+                result_verified=True
                 progress({'stage':'SAVING','message':'校验完成，正在保存最低费用可行方案','best_fee':result['total_fee']})
+            result.setdefault('algorithm',{}).update(
+                source_provenance=collect_source_provenance(),
+                requested_compute_budget_seconds=compute_budget,
+                job_wall_budget_seconds=wall_budget,
+                job_wall_deadline=wall_deadline,
+                worker_preparation_seconds=round(preparation_seconds,6),
+                total_call_policy='PRODUCTION_UNLIMITED' if self.settings.planning_road_source!='TEST_GRID' else 'ISOLATED_FIXTURE')
             with self.sessions() as db:
                 start_write(db,self.engine); current = db.get(PlanningJob,job_id)
                 if current is None or current.status != 'RUNNING':return
+                if wall_publication_gate(current,result):db.commit();return
                 if current.lease_until < now():
                     current.status='FAILED';current.error_code='WORKER_INTERRUPTED';current.error_message='任务租约已过期，原输入保留，请重新规划。';current.finished_at=now();db.commit();return
                 current.result=encode(result); current.finished_at=now()
@@ -336,14 +418,32 @@ class PlanningRunner:
                 else:
                     parent=db.get(PlanVersion,payload['parent_id']) if payload.get('parent_id') else latest
                     stopped=result.get('algorithm',{}).get('stop_reason') == 'CANCELLED' or current.cancel_requested
+                    if wall_publication_gate(current,result):db.commit();return
+                    current.result=encode(result)
                     append_version(db,snapshot,result,current.created_by,current.created_by_name,parent,current.id,
                                    note=payload.get('note') or ('取消前保留的完整结果' if stopped else '自动规划' if current.kind=='OPTIMIZE' else '人工调整重算'))
                     current.status='CANCELLED' if stopped else 'COMPLETED'
+                current.finished_at=now()
                 db.commit()
         except Exception as exc:
+            if isinstance(exc,StopSearch):
+                exc=ApiError(409,exc.reason,'总等待截止（含排队），原输入保留，未新增业务方案。'
+                             if exc.reason=='WALL_BUDGET' else '任务已停止，原输入保留，尚未保存新方案。')
+            elif isinstance(exc,RoadError) and exc.code in {'CANCELLED','WALL_BUDGET','LIVE_CALLS_DISABLED'}:
+                exc=ApiError(409,exc.code,exc.message)
             with self.sessions() as db:
                 start_write(db,self.engine); job=db.get(PlanningJob,job_id)
                 if job is None or job.status != 'RUNNING':return
+                if wall_state is not None:
+                    saved=result if result_verified and isinstance(exc,ApiError) and exc.code=='WALL_BUDGET' else None
+                    if saved is None:
+                        try:saved=json.loads(job.result) if job.result else {}
+                        except (TypeError,ValueError):saved={}
+                    if not isinstance(saved,dict):saved={}
+                    saved.setdefault('algorithm',{}).update(wait_audit())
+                    if isinstance(exc,ApiError) and exc.code=='WALL_BUDGET':
+                        saved['algorithm'].update(stop_reason='WALL_BUDGET',publication='NOT_PUBLISHED_WALL_DEADLINE')
+                    job.result=encode(saved)
                 job.status='CANCELLED' if isinstance(exc,ApiError) and exc.code=='CANCELLED' else 'FAILED'
                 job.error_code=exc.code if isinstance(exc,ApiError) else 'PLANNING_FAILED'
                 job.error_message=exc.message if isinstance(exc,ApiError) else '规划未完成，已保存输入，请检查配置后重试。'

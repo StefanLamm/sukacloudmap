@@ -66,27 +66,84 @@ class FixtureRoad:
 
 
 class TruckRoad:
-    def __init__(self, settings, call_limit=0, cache_get=None, cache_put=None, transport=None, cancelled=lambda: False, limiter=None):
-        self.settings = settings; self.call_limit = call_limit; self.calls = self.hits = self.failures = 0
+    def __init__(self, settings, call_limit=None, cache_get=None, cache_put=None, transport=None, cancelled=lambda: False, limiter=None,
+                 *, production_planning=False, wall_deadline=None, network_control=None, timer=None):
+        self.settings = settings
+        self.production_planning = bool(production_planning)
+        self.ignored_call_limit_assignments = 0
+        self._call_limit = None
+        self.call_limit = call_limit
+        if wall_deadline is not None and (isinstance(wall_deadline, bool) or not math.isfinite(float(wall_deadline))):
+            raise ValueError('The absolute road waiting deadline must be finite')
+        self.wall_deadline = wall_deadline
+        self.network_control = network_control
+        self.timer = timer or time.monotonic
+        self.network_stop_reason = None
+        self.io_seconds = 0.
+        self.calls = self.hits = self.failures = 0
         self.cache_get = cache_get or (lambda key: None); self.cache_put = cache_put or (lambda key, item: None)
         self.local = {}; self.transport = transport; self.cancelled = cancelled
         self.limiter = limiter or AMapRateLimiter.from_settings(settings)
 
+    @property
+    def call_limit(self):
+        return None if getattr(self, 'production_planning', False) else getattr(self, '_call_limit', None)
+
+    @call_limit.setter
+    def call_limit(self, value):
+        if getattr(self, 'production_planning', False):
+            if value is not None:
+                self.ignored_call_limit_assignments = getattr(self, 'ignored_call_limit_assignments', 0) + 1
+            self._call_limit = None
+        else:
+            self._call_limit = value
+
+    def check_network_control(self):
+        """The production count is unlimited; permission and time are not."""
+        if self.cancelled():
+            self.network_stop_reason = 'CANCELLED'
+            raise RoadError('CANCELLED', '规划已取消')
+        if self.wall_deadline is not None and self.timer() >= self.wall_deadline:
+            self.network_stop_reason = 'WALL_BUDGET'
+            raise RoadError('WALL_BUDGET', '任务总等待已达到截止时间，未继续请求道路')
+        if getattr(self, 'production_planning', False) and not self.settings.road_calls_enabled:
+            self.network_stop_reason = 'LIVE_CALLS_DISABLED'
+            raise RoadError('LIVE_CALLS_DISABLED', '当前入口明确关闭外部算路，已有缓存仍可使用')
+        if self.network_control is not None:
+            self.network_control()
+
+    def request_timeout(self):
+        self.check_network_control()
+        return 6. if self.wall_deadline is None else min(6., max(.001, self.wall_deadline - self.timer()))
+
     def pace(self, service, *, retry=None):
+        started=self.timer()
         try:
+            self.check_network_control()
             if retry is not None:
                 self.limiter.defer(service, retry)
             else:
-                self.limiter.acquire(service, cancelled=self.cancelled)
-                if self.cancelled():
-                    raise RateLimitWaitError('CANCELLED')
+                def stopped():
+                    self.check_network_control()
+                    return False
+                self.limiter.acquire(service, cancelled=stopped)
+            self.check_network_control()
         except RateLimitWaitError as exc:
             if exc.code == 'CANCELLED':
                 raise RoadError('CANCELLED', '规划已取消') from None
             raise RoadError('ROAD_QPS_WAIT', '高德算路请求正在排队，请稍后重试，当前方案已保留') from None
+        finally:
+            self.io_seconds+=max(0.,self.timer()-started)
     def stats(self):
         return {'source': 'LIVE', 'calls': self.calls, 'cache_hits': self.hits, 'failures': self.failures,
-                'call_limit': self.call_limit, 'time_semantics': 'NOT_VERIFIED', 'endpoint': ENDPOINT}
+                'call_limit': self.call_limit,
+                'total_call_policy': 'PRODUCTION_UNLIMITED' if getattr(self, 'production_planning', False) else 'EXPLICIT_RESEARCH_ALLOWANCE',
+                'live_calls_enabled': bool(getattr(self.settings, 'road_calls_enabled', False)),
+                'ignored_call_limit_assignments': getattr(self, 'ignored_call_limit_assignments', 0),
+                'wall_deadline': getattr(self, 'wall_deadline', None),
+                'network_stop_reason': getattr(self, 'network_stop_reason', None),
+                'network_wait_seconds': round(self.io_seconds,4),
+                'time_semantics': 'NOT_VERIFIED', 'endpoint': ENDPOINT}
     def preflight(self,vehicle,origin):
         if not self.settings.amap_web_service_key or not self.settings.amap_web_service_key.get_secret_value():
             raise RoadError('TRUCK_KEY_MISSING','未配置真实货车服务，共配保留，专车待道路验证')
@@ -119,13 +176,19 @@ class TruckRoad:
                   'restriction': 1, 'consider_load': 0, 'has_pass': 'false', 'showpolyline': 1, 'nosteps': 0}
         # At most two attempts, both charged to the same explicit job budget.
         for attempt in range(2):
-            if self.cancelled(): raise RoadError('CANCELLED', '规划已取消')
+            self.check_network_control()
             if self.call_limit is not None and self.calls >= self.call_limit: raise RoadError('ROAD_CALL_BUDGET', '本次货车调用额度已用完')
             self.pace('truck')
-            self.calls += 1
+            self.check_network_control()
             try:
-                with httpx.Client(timeout=6, transport=self.transport, follow_redirects=False) as client:
-                    response = client.get(ENDPOINT, params=params)
+                io_started=self.timer()
+                try:
+                    with httpx.Client(timeout=self.request_timeout(), transport=self.transport, follow_redirects=False) as client:
+                        self.check_network_control()
+                        self.calls += 1
+                        response = client.get(ENDPOINT, params=params)
+                finally:self.io_seconds+=max(0.,self.timer()-io_started)
+                self.check_network_control()
                 if response.status_code == 429:
                     log_throttle('truck', 'HTTP_429', attempt)
                     self.pace('truck', retry=attempt)
@@ -162,13 +225,16 @@ class TruckRoad:
                                 notice='该接口未证明指定发车时刻及车牌颜色约束，结果仅供草稿复核')
                 self.local[key] = item; self.cache_put(key, item); return deepcopy(item)
             except (httpx.TimeoutException, httpx.NetworkError):
+                self.check_network_control()
                 if attempt == 0:
                     self.pace('truck', retry=attempt); continue
                 self.failures += 1; raise RoadError('ROAD_TIMEOUT', '货车服务超时或网络异常')
             except (ValueError, KeyError, IndexError, TypeError):
                 self.failures += 1; raise RoadError('ROAD_RESPONSE', '货车道路返回内容不完整或格式错误')
-            except RoadError:
-                self.failures += 1; raise
+            except RoadError as exc:
+                if exc.code not in {'CANCELLED', 'WALL_BUDGET', 'LIVE_CALLS_DISABLED'}:
+                    self.failures += 1
+                raise
         raise RoadError('ROAD_UNAVAILABLE', '货车道路不可用')
 
 
@@ -183,7 +249,7 @@ class DrivingRoad(TruckRoad):
         self.allow_historical=kwargs.pop('allow_historical',False)
         self.force_refresh=kwargs.pop('force_refresh',False)
         super().__init__(*args,**kwargs)
-        self.graph=None;self._metric_keys={};self.metric_hints={};self.io_seconds=0.;self.historical_hits=0
+        self.graph=None;self._metric_keys={};self.metric_hints={};self.historical_hits=0
         self.local=OrderedDict();self._freshened_keys=set();self._fresh_bound_keys=set()
         path=getattr(self.settings,'amap_reference_graph_path',None)
         if self.settings.environment=='test':
@@ -202,11 +268,6 @@ class DrivingRoad(TruckRoad):
 
     def close(self):
         if self.graph is not None:self.graph.close()
-
-    def pace(self,service,*,retry=None):
-        started=time.monotonic()
-        try:return super().pace(service,retry=retry)
-        finally:self.io_seconds+=time.monotonic()-started
 
     def known_segment(self,origin,destination):
         """Only nonbinding measured hints; accepted routes still use segment()."""
@@ -368,16 +429,19 @@ class DrivingRoad(TruckRoad):
                   'destination': f"{provider_destination['longitude']:.6f},{provider_destination['latitude']:.6f}",
                   'strategy': 32, 'show_fields': 'cost,polyline', 'output': 'json'}
         for attempt in range(2):
-            if self.cancelled(): raise RoadError('CANCELLED', '规划已取消')
+            self.check_network_control()
             if self.call_limit is not None and self.calls >= self.call_limit: raise RoadError('ROAD_CALL_BUDGET', '本次高德算路调用额度已用完，保留完整参考方案')
             self.pace('driving')
-            self.calls += 1
+            self.check_network_control()
             try:
-                io_started=time.monotonic()
+                io_started=self.timer()
                 try:
-                    with httpx.Client(timeout=6, transport=self.transport, follow_redirects=False) as client:
+                    with httpx.Client(timeout=self.request_timeout(), transport=self.transport, follow_redirects=False) as client:
+                        self.check_network_control()
+                        self.calls += 1
                         response = client.get(DRIVING_ENDPOINT, params=params)
-                finally:self.io_seconds+=time.monotonic()-io_started
+                finally:self.io_seconds+=max(0.,self.timer()-io_started)
+                self.check_network_control()
                 if response.status_code == 429:
                     log_throttle('driving', 'HTTP_429', attempt)
                     self.pace('driving', retry=attempt)
@@ -420,13 +484,16 @@ class DrivingRoad(TruckRoad):
                 if self.graph is not None:self.graph.put_reference(provider_key,provider)
                 return deepcopy(item)
             except (httpx.TimeoutException, httpx.NetworkError):
+                self.check_network_control()
                 if attempt == 0:
                     self.pace('driving', retry=attempt); continue
                 self.failures += 1; raise RoadError('ROAD_TIMEOUT', '高德驾车服务超时或网络异常')
             except (ValueError, KeyError, IndexError, TypeError):
                 self.failures += 1; raise RoadError('ROAD_RESPONSE', '驾车道路返回内容不完整或格式错误')
-            except RoadError:
-                self.failures += 1; raise
+            except RoadError as exc:
+                if exc.code not in {'CANCELLED', 'WALL_BUDGET', 'LIVE_CALLS_DISABLED'}:
+                    self.failures += 1
+                raise
         raise RoadError('ROAD_UNAVAILABLE', '驾车道路不可用')
 
 

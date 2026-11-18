@@ -89,6 +89,11 @@ def expand_candidate_cycles(search, *, quote_rotation=False, selection_loop=Fals
                         search.quick_exchange(candidate)
             try:
                 duration = min(3., max(.05, search.remaining() * .5))
+                assignment_options={}
+                if getattr(getattr(search.road,'deep_experiments',None),'complete_assignment_pricing',False):
+                    from app.route_assignment_pricing import assignment_callback
+                    assignment_options={'complete_assignment_pricing':True,
+                        'on_assignment':assignment_callback(search,scope_ids=data['tasks'])}
                 specs, row['routing'] = generate_ortools_candidates(
                     data, lambda vehicle, a, b: search.road.known_segment(a, b), duration,
                     (search.seed + (index + 1) * 31337) % 2147483647, search.cancelled,
@@ -97,12 +102,21 @@ def expand_candidate_cycles(search, *, quote_rotation=False, selection_loop=Fals
                         variant if gain_allocation else index % 3],
                     common_penalty_multiplier=(1, 2, .75, 4)[index % 4], on_batch=batch,
                     candidate_retention=getattr(getattr(search.road, 'deep_experiments', None),
-                                                'native_candidate_retention', 'first'))
+                                                'native_candidate_retention', 'first'),
+                    **({'stage_trace':search.road.route_stage_trace} if getattr(search.road,'route_stage_trace',None) is not None else {}),
+                    **({'candidate_stream_observer':search.road.native_candidate_stream_observer}
+                       if getattr(search.road,'native_candidate_stream_observer',None) is not None else {}),
+                    **assignment_options)
                 if search.remaining() > .075:
                     batch(specs)
                 if row['changed_pool_columns'] and search.remaining() > .075:
                     original_pack()
                     row['selection_runs'] += 1
+            except StopSearch as exc:
+                if isinstance(getattr(exc,'native_diagnostics',None),dict):
+                    row['routing']=exc.native_diagnostics
+                exc.candidate_expansion_diagnostics=diagnostics
+                raise
             finally:
                 row.update(after_fee=search.best['total_fee'],
                     fee_reduction=str(Decimal(prior_fee) - Decimal(search.best['total_fee'])),

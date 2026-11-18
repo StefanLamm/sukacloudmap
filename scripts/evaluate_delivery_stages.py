@@ -39,6 +39,62 @@ class IntegrityError(ValueError):
     pass
 
 
+def road_execution_policy(enabled, *, adapter='FrozenEvidenceRoad',
+                          evidence_scope='OFFLINE_FROZEN_DRIVING_REFERENCE'):
+    """Describe search semantics separately from the immutable road evidence.
+
+    The production marker is interpreted by each pinned source version. Older
+    sources may retain their own count stops; this helper never patches them.
+    A production search policy cannot turn this offline adapter into a live one.
+    """
+    if not isinstance(enabled, bool):
+        raise ValueError('production_search_policy must be a boolean')
+    if (adapter, evidence_scope) not in {
+            ('FrozenEvidenceRoad', 'OFFLINE_FROZEN_DRIVING_REFERENCE'),
+            ('FormulaRoad', 'SYNTHETIC_MATRIX_NOT_AMAP_EVIDENCE')}:
+        raise ValueError('Production-policy evaluation requires a recognized offline road adapter')
+    return {'policy_id': 'OFFLINE_SEARCH_POLICY_V1', 'adapter': adapter,
+            'evidence_scope': evidence_scope,
+            'search_policy': 'VERSION_NATIVE_PRODUCTION' if enabled else 'RESEARCH_DEFAULT',
+            'production_planning': enabled, 'http_enabled': False,
+            'unknown_edges': 'REJECT_NO_ESTIMATION_OR_COLLECTION',
+            'wall_deadline_policy': ('WORKER_LAUNCH_PLUS_WAIT_SECONDS' if enabled
+                                     else 'EXISTING_RESEARCH_DEFAULT'),
+            'timer': 'time.monotonic',
+            'count_limit_policy': ('FOLLOW_SOURCE_NATIVE_PRODUCTION_MARKER' if enabled
+                                   else 'FOLLOW_SOURCE_RESEARCH_DEFAULT')}
+
+
+def apply_road_execution_policy(road, enabled, *, wall_deadline, cancelled,
+                                adapter='FrozenEvidenceRoad',
+                                evidence_scope='OFFLINE_FROZEN_DRIVING_REFERENCE'):
+    """Attach only the production caller contract; no metric or source edits."""
+    policy = road_execution_policy(enabled, adapter=adapter, evidence_scope=evidence_scope)
+    if enabled:
+        if type(road).__name__ != adapter:
+            raise ValueError('Offline search policy does not accept a live road adapter')
+        if (isinstance(wall_deadline, bool) or wall_deadline is None
+                or not math.isfinite(float(wall_deadline))):
+            raise ValueError('Production search requires a finite absolute wall deadline')
+        road.production_planning = True
+        road.wall_deadline = float(wall_deadline)
+        road.timer = time.monotonic
+        road.cancelled = cancelled
+        if not hasattr(road, 'settings'):
+            road.settings = SimpleNamespace()
+        road.settings.road_calls_enabled = False
+    return policy
+
+
+def road_execution_state(road, launched):
+    """Record actual worker values without making absolute times pair keys."""
+    return {'worker_launched_monotonic': launched,
+            'road_production_planning': bool(getattr(road, 'production_planning', False)),
+            'road_wall_deadline_monotonic': getattr(road, 'wall_deadline', None),
+            'road_timer': ('time.monotonic' if getattr(road, 'timer', None) is time.monotonic
+                           else 'SOURCE_DEFAULT_TIMER')}
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                     separators=(',', ':'), allow_nan=False).encode()).hexdigest()
@@ -57,6 +113,58 @@ def save(path, value):
         json.dump(value, stream, ensure_ascii=False, indent=2, allow_nan=False)
         stream.write('\n')
     temporary.replace(path)
+
+
+def absolute_pause_file(value):
+    path = Path(value)
+    if not path.is_absolute():
+        raise ValueError('Pause control must be an absolute path')
+    return os.path.abspath(path)
+
+
+def wait_between_runs(pause_file, output, context, *, periods, changed=lambda: None):
+    """Acknowledge only a quiescent manager, after its prior audit has ended.
+
+    The serial manager calls this before launching each fresh worker. It never
+    runs inside a worker or its independent audit, and none of this waiting is
+    part of a worker's compute or supervisor deadline. The operator owns the
+    control file: create it, wait for this acknowledgement, do other work, then
+    remove it to resume the same pending run.
+    """
+    if pause_file is None:
+        return None
+    control = Path(absolute_pause_file(pause_file))
+    output = Path(output)
+    state_file = output / 'pause-state.json'
+    if control.resolve() == state_file.resolve():
+        raise ValueError('Pause control and acknowledgement must be different files')
+    if not control.exists():
+        return None
+    started = time.monotonic()
+    period = {'status': 'PAUSED_BETWEEN_RUNS', 'pause_number': len(periods) + 1,
+              'pause_file': str(control), 'manager_pid': os.getpid(),
+              'started_at': time.time(), 'ended_at': None, 'seconds': None,
+              'context': deepcopy(context), 'excluded_from_worker_budgets': True}
+    periods.append(period)
+
+    def publish():
+        changed()
+        save(state_file, period)
+        print(json.dumps({'event': period['status'], **period}, ensure_ascii=False), flush=True)
+
+    publish()
+    try:
+        while control.exists():
+            time.sleep(.25)
+    except BaseException:
+        period.update(status='PAUSE_INTERRUPTED', ended_at=time.time(),
+                      seconds=round(max(0., time.monotonic() - started), 6))
+        publish()
+        raise
+    period.update(status='RESUMED_BETWEEN_RUNS', ended_at=time.time(),
+                  seconds=round(max(0., time.monotonic() - started), 6))
+    publish()
+    return period
 
 
 def source_manifest(root):
@@ -137,6 +245,14 @@ def worker(spec_path):
         return reached
     road = FrozenEvidenceRoad(case['road_database'], cancelled=cancelled)
     road.settings = SimpleNamespace(planning_optimizer_profile=spec.get('optimizer_profile', 'HYBRID'))
+    production_policy = spec.get('production_search_policy', False)
+    execution_policy = road_execution_policy(production_policy)
+    if spec.get('road_execution_policy', execution_policy) != execution_policy:
+        raise IntegrityError('Worker road execution policy differs from the pinned specification')
+    if production_policy and 'road_execution_policy' not in spec:
+        raise IntegrityError('Production road execution policy is missing from the specification')
+    apply_road_execution_policy(road, production_policy, wall_deadline=wait_deadline,
+                                cancelled=cancelled)
     candidate_stream = [] if spec.get('capture_candidate_stream') else None
     native_stream = [] if spec.get('capture_native_candidate_stream') else None
     if candidate_stream is not None:
@@ -150,6 +266,9 @@ def worker(spec_path):
                warm_start=spec.get('warm_start', False), external_calls=0, source_business_database_written=False,
                capture_candidate_stream=candidate_stream is not None,
                capture_native_candidate_stream=native_stream is not None,
+               production_search_policy=production_policy,
+               road_execution_policy=execution_policy,
+               **road_execution_state(road, launched),
                timing_scope='DIAGNOSTIC_STREAM_CAPTURE' if candidate_stream is not None or native_stream is not None else 'NORMAL_COLD_START')
     started = time.monotonic()
     try:
@@ -265,7 +384,18 @@ def pair_summary(baseline, candidate):
     same_keys = ('identity', 'compute_seconds', 'wait_seconds', 'seed', 'hash_seed')
     if any(baseline[key] != candidate[key] for key in same_keys):
         raise IntegrityError('Attempted to compare unequal experiment conditions')
+    policies = []
+    for value in (baseline, candidate):
+        enabled = value.get('production_search_policy', False)
+        expected = road_execution_policy(enabled)
+        recorded = value.get('road_execution_policy', expected)
+        if recorded != expected or (enabled and 'road_execution_policy' not in value):
+            raise IntegrityError('Missing or inconsistent road execution policy')
+        policies.append((enabled, recorded))
+    if policies[0] != policies[1]:
+        raise IntegrityError('Attempted to compare unequal road execution policies')
     row = {key: baseline[key] for key in same_keys}
+    row.update(production_search_policy=policies[0][0], road_execution_policy=policies[0][1])
     row.update(profile_name=candidate['profile_name'], baseline_status=baseline['status'],
                candidate_status=candidate['status'], baseline_run=baseline['run_folder'], candidate_run=candidate['run_folder'])
     if baseline['status'] == candidate['status'] == 'VALID':
@@ -283,7 +413,8 @@ def summarize(pairs, runs):
     groups = {}
     for row in pairs:
         key = (row['profile_name'], row['identity']['graph_hash'], row['identity']['historical_hints_hash'],
-               row['compute_seconds'], row['wait_seconds'])
+               row['compute_seconds'], row['wait_seconds'], row.get('production_search_policy', False),
+               digest(row.get('road_execution_policy', road_execution_policy(False))))
         groups.setdefault(key, []).append(row)
     summaries = []
     for key, rows in groups.items():
@@ -291,6 +422,8 @@ def summarize(pairs, runs):
         savings = [Decimal(row['saving']) for row in valid]
         summaries.append({'profile_name': key[0], 'graph_hash': key[1], 'historical_hints_hash': key[2],
                           'compute_seconds': key[3], 'wait_seconds': key[4], 'pair_count': len(rows),
+                          'production_search_policy': key[5],
+                          'road_execution_policy': rows[0].get('road_execution_policy', road_execution_policy(False)),
                           'valid_pairs': len(valid), 'improved': sum(row['outcome'] == 'IMPROVED' for row in rows),
                           'equal': sum(row['outcome'] == 'EQUAL' for row in rows),
                           'regressed': sum(row['outcome'] == 'REGRESSED' for row in rows),
@@ -305,7 +438,14 @@ def summarize(pairs, runs):
 
 
 def evaluate(config):
+    production_policy = config.get('production_search_policy', False)
+    execution_policy = road_execution_policy(production_policy)
+    pause_file = config.get('pause_file')
+    if pause_file is not None:
+        pause_file = absolute_pause_file(pause_file)
     output = Path(config['output']).resolve()
+    if pause_file is not None and Path(pause_file).resolve() == (output / 'pause-state.json').resolve():
+        raise ValueError('Pause control and acknowledgement must be different files')
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     if (output / 'manifest.json').exists():
         raise IntegrityError('Use a new output directory; completed experiments are never overwritten')
@@ -318,6 +458,14 @@ def evaluate(config):
                 'identities': identities, 'execution_policy': 'STRICTLY_SERIAL_ALTERNATING_PAIRED_FRESH_PROCESSES',
                 'objective': 'COMPLETE_VALID_WHOLE_ORDER_ACTUAL_FEE', 'external_calls': 0,
                 'source_business_database_written': False, 'warm_start': config.get('warm_start', False)}
+    manifest.update(production_search_policy=production_policy, road_execution_policy=execution_policy)
+    pause_periods = []
+    if pause_file is not None:
+        manifest['pause_control'] = {
+            'path': pause_file, 'state_file': str(output / 'pause-state.json'),
+            'manager_pid': os.getpid(), 'periods': pause_periods,
+            'policy': 'BETWEEN_WORKERS_ONLY_AFTER_PREVIOUS_INDEPENDENT_AUDIT_FINISHES',
+            'budget_scope': 'PAUSES_EXCLUDED_FROM_ALL_WORKER_COMPUTE_AND_WAIT_BUDGETS'}
     save(output / 'manifest.json', manifest)
     environment = {key: value for key, value in os.environ.items() if not key.upper().startswith('SUKA_')}
     environment.update(ENV, PYTHONHASHSEED=str(config['hash_seed']))
@@ -334,6 +482,17 @@ def evaluate(config):
                     if wait_seconds is None:
                         wait_seconds = budget + min(1800., max(120., budget * 2)) + 15
                     for side in order:
+                        if pause_file is not None:
+                            previous = ({'run_folder': runs[-1]['run_folder'],
+                                         'status': runs[-1]['status'],
+                                         'independent_audit_finished': True} if runs else None)
+                            wait_between_runs(pause_file, output, {
+                                'completed_runs': len(runs), 'previous_run': previous,
+                                'next_run': {'side': side, 'profile': profile['name'],
+                                             'case': case_path, 'budget': budget,
+                                             'seed': seed, 'pair_ordinal': ordinal}},
+                                periods=pause_periods,
+                                changed=lambda: save(output / 'manifest.json', manifest))
                         if source_manifest(sources[side])['sha256'] != manifests[side]['sha256']:
                             raise IntegrityError('Source changed during experiment batch')
                         if source_manifest(ROOT)['sha256'] != evaluator_hash:
@@ -352,6 +511,7 @@ def evaluate(config):
                                 'warm_start': config.get('warm_start', False),
                                 'optimizer_profile': profile.get('optimizer_profile', 'HYBRID'),
                                 'capture_candidate_stream': profile.get('capture_candidate_stream', False)}
+                        spec.update(production_search_policy=production_policy, road_execution_policy=execution_policy)
                         spec['capture_native_candidate_stream'] = profile.get('capture_native_candidate_stream', False)
                         save(folder / 'spec.json', spec)
                         started = time.monotonic()
@@ -370,7 +530,11 @@ def evaluate(config):
                                        'complete_result_available': (folder / 'result.json.gz').exists()}
                                 if row['complete_result_available']:
                                     row['result_file'] = str(folder / 'result.json.gz')
-                        row.update(side=side, run_folder=str(folder), supervisor_seconds=round(time.monotonic() - started, 6))
+                        if ('road_execution_policy' in row and row['road_execution_policy'] != execution_policy
+                                or 'production_search_policy' in row and row['production_search_policy'] != production_policy):
+                            row.update(status='POLICY_MISMATCH')
+                        row.update(side=side, run_folder=str(folder), supervisor_seconds=round(time.monotonic() - started, 6),
+                                   production_search_policy=production_policy, road_execution_policy=execution_policy)
                         try:
                             row = independent_check(spec, row)
                             if case_identity(case_path) != identity:
@@ -408,7 +572,11 @@ def parser():
     value.add_argument('--seeds', type=int, nargs='+', default=[0])
     value.add_argument('--hash-seed', type=int, default=0)
     value.add_argument('--wait-seconds', type=float, help='Full process hard cutoff, independent of compute budget')
+    value.add_argument('--pause-file', type=absolute_pause_file,
+                       help='Absolute operator-owned file; pause between audited workers while it exists')
     value.add_argument('--warm-start', action='store_true')
+    value.add_argument('--production-search-policy', action='store_true',
+                       help='Use each source version\'s production search marker on offline frozen roads; HTTP remains unavailable')
     value.add_argument('--output')
     value.add_argument('--python', default=sys.executable)
     value.add_argument('--worker', help=argparse.SUPPRESS)
@@ -437,7 +605,10 @@ def main():
         command.error('Profile names must be unique simple letters/digits/underscore/hyphen')
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    report = evaluate({**vars(args), 'profiles': profiles})
+    config = {**vars(args), 'profiles': profiles}
+    if args.pause_file is None:
+        config.pop('pause_file')
+    report = evaluate(config)
     return 0 if all(row['status'] == 'VALID' for row in report['runs']) else 1
 
 

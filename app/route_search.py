@@ -18,6 +18,8 @@ from app.routing_engine import (StopSearch, assemble, check_result, common_fee,
 class JointSearch:
     def __init__(self, data, road, seconds, seed, cancelled, initial_result=None):
         self.data,self.road=data,road
+        self.stage_trace=getattr(road,'route_stage_trace',None)
+        self.trace_scope=self.stage_trace.scope('SEARCH') if self.stage_trace is not None else None
         self.tasks=data['tasks'];self.all_ids=set(self.tasks)
         self.indices={key:1<<n for n,key in enumerate(sorted(self.tasks))}
         self.common={key for key,row in self.tasks.items() if row['common_unit_price'] is not None}
@@ -27,6 +29,8 @@ class JointSearch:
         self.started=time.monotonic();self.seconds=max(0,seconds)
         self.started_io=float(getattr(road,'io_seconds',0))
         self.wall_limit=self.seconds+min(1800,max(120,self.seconds*2))
+        if getattr(road,'wall_deadline',None) is not None:
+            self.wall_limit=min(self.wall_limit,max(0.,road.wall_deadline-self.started))
         self.search_seconds=max(0,seconds-min(.25,seconds*.05))
         self.cancelled=cancelled;self.seed=seed;self.rng=random.Random(seed)
         self.evaluations=self.hits=self.failures=self.network_failures=0
@@ -45,7 +49,7 @@ class JointSearch:
         if self.cancelled():raise StopSearch('CANCELLED')
         if time.monotonic()-self.started>=self.wall_limit:raise StopSearch('WALL_BUDGET')
         if self.compute_elapsed()>=self.search_seconds:raise StopSearch('TIME_BUDGET')
-        if self.evaluations>=self.max_evaluations:raise StopSearch('CANDIDATE_BUDGET')
+        if not getattr(self.road, 'production_planning', False) and self.evaluations>=self.max_evaluations:raise StopSearch('CANDIDATE_BUDGET')
 
     def compute_elapsed(self):
         wall=time.monotonic()-self.started
@@ -84,12 +88,19 @@ class JointSearch:
 
     def remember(self, route):
         candidate=self.compact(route);key=(candidate['vehicle_id'],candidate['mask'])
+        if self.stage_trace is not None and self.route_ok(route):
+            self.stage_trace.route('PRICED_VALID',candidate,fee=candidate['fee'],
+                status='METRIC' if candidate.get('_estimated') else 'ROAD_EVIDENCE',scope=self.trace_scope)
         observer=getattr(self.road,'candidate_observer',None)
         if callable(observer) and self.route_ok(route):
             # Per-job observers collect identities/order only. Their prices are
             # always discarded and independently re-evaluated by the portfolio
             # selector; do not change global solver classes or shared Settings.
             observer({'vehicle_id':candidate['vehicle_id'],'task_ids':list(candidate['task_ids'])})
+        priced_observer=getattr(self.road,'priced_candidate_observer',None)
+        if callable(priced_observer) and self.route_ok(route):
+            priced_observer({'vehicle_id':candidate['vehicle_id'],'task_ids':list(candidate['task_ids']),
+                             'retention_fee':candidate['fee']})
         prior=self.pool.get(key)
         if (prior is None or (not candidate.get('_estimated') and prior.get('_estimated') and candidate['task_ids']==prior['task_ids'])
                 or (Decimal(candidate['fee']),candidate['meters'],candidate['seconds'],candidate['task_ids'])<(Decimal(prior['fee']),prior['meters'],prior['seconds'],prior['task_ids'])):
@@ -113,6 +124,9 @@ class JointSearch:
 
     def failed_route(self,route,ids):
         self.failures+=1
+        if self.stage_trace is not None:
+            self.stage_trace.route('PRICED_REJECTED',route,status='REJECTED',
+                reason='|'.join(sorted({error['code'] for error in route['errors']})),scope=self.trace_scope)
         diagnostics=getattr(self.road,'search_diagnostics',None)
         if diagnostics is not None:diagnostics.reject(route['errors'])
         if any(e['code'].startswith(('ROAD_','DRIVING_','TRUCK_','COORDINATES_')) for e in route['errors']):self.network_failures+=1
@@ -122,17 +136,27 @@ class JointSearch:
 
     def evaluate(self, vid, ids):
         self.control();key=(vid,tuple(ids))
+        if self.stage_trace is not None:
+            self.stage_trace.route('PRICE_REQUEST',{'vehicle_id':vid,'task_ids':ids},scope=self.trace_scope)
         if key in self.memo:
             self.hits+=1
             diagnostics=getattr(self.road,'search_diagnostics',None)
             if diagnostics is not None:diagnostics.counts['evaluation_cache_hits']+=1
+            if self.stage_trace is not None:
+                cached=self.memo[key]
+                self.stage_trace.route('PRICE_CACHE',{'vehicle_id':vid,'task_ids':ids},
+                    status='VALID' if cached is not None else 'REJECTED',
+                    fee=cached['fee'] if cached is not None else None,scope=self.trace_scope)
             return self.memo[key]
         self.evaluations+=1
         diagnostics=getattr(self.road,'search_diagnostics',None)
         if diagnostics is not None:diagnostics.counts['evaluated_candidates']+=1
         from app.route_metrics import evaluate_candidate
         route=evaluate_candidate(self.data,vid,list(ids),self.road,self.control)
-        if route is None:route=evaluate_route(self.data,vid,list(ids),self.road,self.control)
+        if route is None:
+            if self.stage_trace is not None:
+                self.stage_trace.route('PRICE_METRIC_MISSING',{'vehicle_id':vid,'task_ids':ids},scope=self.trace_scope)
+            route=evaluate_route(self.data,vid,list(ids),self.road,self.control)
         if not self.route_ok(route):
             self.failed_route(route,ids)
             self.memo[key]=None;self.trim_cache();return None

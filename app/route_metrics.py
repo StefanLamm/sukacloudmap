@@ -9,6 +9,10 @@ from app.routing_engine import RoadError, line_fee, regional_extra, problem
 
 
 def evaluate_candidate(data, vehicle_id, ids, road, control=None):
+    trace=getattr(road,'route_stage_trace',None)
+    if trace is not None:
+        trace.route('CENTRAL_METRIC_REQUEST',{'vehicle_id':vehicle_id,'task_ids':ids},
+                    scope='JOB_EVALUATOR_REQUESTS')
     lookup=getattr(road,'known_segment',None)
     if not callable(lookup):return None
     errors=[]

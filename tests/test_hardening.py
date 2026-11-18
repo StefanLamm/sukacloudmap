@@ -104,13 +104,13 @@ def test_expired_worker_does_not_publish_late_result_over_terminal_state(basis,a
     from test_plan_api import new_job,waited
     import app.plan_service as service
     original=service.optimize_deep
-    def lose_lease(body,road,budget,seed,cancelled,*,initial_result=None,progress=None):
+    def lose_lease(body,road,budget,seed,cancelled,*,initial_result=None,progress=None,wall_budget_seconds=None):
         from app.database import start_write
         from sqlalchemy import select
         with app.state.sessions() as db:
             start_write(db,app.state.engine)
             job=db.scalar(select(PlanningJob).where(PlanningJob.status=='RUNNING'));job.status='FAILED';job.error_code='WORKER_INTERRUPTED';job.finished_at=now();db.commit()
-        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress)
+        return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress,wall_budget_seconds=wall_budget_seconds)
     monkeypatch.setattr(service,'optimize_deep',lose_lease)
     c,w,q,s,s2,v=basis;snapshot=commit(c,previewed(c,[[s['name'],3,s['code']]])).json()['snapshot_id']
     result=waited(c,new_job(c,snapshot));time.sleep(.1)

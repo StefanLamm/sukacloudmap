@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     truck_job_max_calls: int | None = Field(default=None, ge=0)
     planning_route_mode: Literal['TRUCK','DRIVING'] = 'TRUCK'
     planning_optimizer_profile: Literal['HYBRID','ALNS','V3_REFERENCE','GUIDED_LOCAL_SEARCH','SIMULATED_ANNEALING','TABU_SEARCH'] = 'HYBRID'
+    planning_deep_experiments: dict[str, object] | None = None
     planning_common_penalty_multiplier: float = Field(default=1,ge=.1,le=10,allow_inf_nan=False)
     driving_live_calls_enabled: bool = False
     driving_job_max_calls: int | None = Field(default=None, ge=0)
@@ -49,6 +50,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_settings(self):
+        if self.planning_deep_experiments is not None:
+            if self.environment != 'test':
+                raise ValueError('规划实验开关仅允许隔离 test 环境。')
+            from app.route_experiments import DeepExperiments
+            try:
+                DeepExperiments.parse(self.planning_deep_experiments)
+            except (TypeError, ValueError):
+                raise ValueError('规划实验开关名称、类型或策略无效。') from None
+        # Retain the old environment names for upgrade compatibility, but they
+        # no longer control a production planning job. Enabling/disabling the
+        # provider is a separate explicit flag, never a zero call allowance.
+        self.truck_job_max_calls = None
+        self.driving_job_max_calls = None
         if self.planning_road_source == 'TEST_GRID' and (self.environment != 'test' or self.truck_live_calls_enabled or self.driving_live_calls_enabled):
             raise ValueError('模拟道路仅允许隔离test环境，且必须关闭真实道路调用')
         for value in [self.map_tile_url, self.map_geocoder_url]:
@@ -68,7 +82,7 @@ class Settings(BaseSettings):
 
     @property
     def road_job_max_calls(self) -> int | None:
-        return self.driving_job_max_calls if self.planning_route_mode == 'DRIVING' else self.truck_job_max_calls
+        return None
 
     @property
     def cookie_name(self) -> str:

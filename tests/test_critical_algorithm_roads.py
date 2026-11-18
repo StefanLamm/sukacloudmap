@@ -149,7 +149,18 @@ def test_wait_deadline_prevents_following_get_and_reports_inflight_overrun(froze
     report = module.execute(prepared(frozen_case, wait_seconds=1), tmp_path / 'deadline')
     assert len(requests) == report['actual_http_attempts'] == 1
     assert report['stop_reason'] == 'WAIT_DEADLINE'
-    assert report['new_directed_edges'] == 1
+    # Late HTTP responses are not accepted as measured road evidence.
+    assert report['new_directed_edges'] == 0
+    assert report['measured_provider_keys'] == 0
+    assert len(report['attempts']) == 1
+    assert report['attempts'][0]['status'] == 'FAILED'
+    with read_only(tmp_path / 'deadline/collection-cache.db') as cache:
+        assert cache.execute('SELECT COUNT(*) FROM evidence').fetchone()[0] == 0
+    with read_only(tmp_path / 'deadline/collected-reference.db') as collected:
+        assert collected.execute('SELECT COUNT(*) FROM metrics').fetchone()[0] == 0
+    expanded = tmp_path / 'deadline/expanded-frozen-roads.db'
+    assert table(expanded, 'metrics') == table(frozen_case['graph'], 'metrics')
+    assert table(expanded, 'edges') == table(frozen_case['graph'], 'edges')
     assert report['deadline_overrun_seconds'] == 4
 
 

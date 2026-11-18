@@ -319,3 +319,36 @@ def test_progress_never_calls_partial_unassigned_amount_a_complete_candidate_fee
         optimize_deep(body, road, .1, progress=updates.append)
     assert exc.value.code == 'DEEP_NO_FEASIBLE_PLAN'
     assert updates and all(row.get('best_fee') is None for row in updates)
+
+
+def test_global_road_deadline_bounds_cpu_and_cached_search():
+    from app.route_deep import _Budget
+    from app.route_search import JointSearch
+    from app.routing_engine import StopSearch
+    import time
+    body, road=problem(n=3)
+    road.wall_deadline=time.monotonic()-.1
+    budget=_Budget(road,300,lambda:False)
+    with pytest.raises(StopSearch,match='WALL_BUDGET'):
+        budget.control()
+    search=JointSearch(normalize(body),road,300,0,lambda:False)
+    with pytest.raises(StopSearch,match='WALL_BUDGET'):
+        search.control()
+
+
+def test_production_unlimited_bridge_diagnostics_serialize_as_null():
+    from app.route_verification import DrivingCollector, _best_small_route
+    from app.planning_inputs import encode
+    body,_=problem(n=3)
+    for index,point in enumerate(body['warehouses']+body['tasks']):
+        point.update(longitude=117+index*.01,latitude=31+index*.01,crs='GCJ02')
+    road=BatchDriving(body); road.production_planning=True
+    collector=DrivingCollector(road,lambda:False,lambda:None,max_bridge_edges=1)
+    try:
+        collector.initial_pass=False
+        result,diagnostics=_best_small_route(normalize(body),'V0',['0','1','2'],collector,
+                                             lambda:None,None)
+        assert result is not None and collector.bridge_edges>1
+        assert collector.max_bridge_edges is None and diagnostics['bridge_allowance'] is None
+        assert 'Infinity' not in encode(diagnostics)
+    finally: collector.close()

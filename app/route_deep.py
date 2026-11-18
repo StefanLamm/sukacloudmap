@@ -17,6 +17,7 @@ from app.planning_inputs import content_hash
 from app.route_metrics import evaluate_candidate
 from app.route_ortools import optimize_ortools
 from app.route_diagnostics import SearchDiagnostics
+from app.source_provenance import collect_source_provenance
 from app.route_experiments import DeepExperiments
 from app.route_portfolio import optimize_alns, optimize_hybrid
 from app.route_verification import (complete, recipe, replay, result_rank,
@@ -35,6 +36,8 @@ class _Budget:
         self.io_started = float(getattr(road, 'io_seconds', 0))
         self.wall_seconds = (self.seconds + min(1800., max(120., self.seconds * 2))
                              if wall_seconds is None else float(wall_seconds))
+        if getattr(road, 'wall_deadline', None) is not None:
+            self.wall_seconds = min(self.wall_seconds, max(0., road.wall_deadline - self.started))
         if not isfinite(self.wall_seconds) or self.wall_seconds < 0:
             raise ValueError('Wall budget must be finite and nonnegative')
 
@@ -152,17 +155,21 @@ def _pre_selection_macros(data, road, incumbent, budget, seed, cancelled):
     compute_before = budget.compute()
     ceiling = budget.seconds * .83
     seconds = min(3., budget.seconds * .06, max(0., ceiling - compute_before) * .4)
-    details = {'budget_seconds': seconds, 'before_fee': incumbent['total_fee'],
+    fragment_policy = getattr(getattr(road, 'deep_experiments', None), 'fragment_merging', False)
+    details = {'seed_generator_policy':'OPEN_FRAGMENT_MERGING' if fragment_policy else 'LONG_TRUNK_MACROS',
+               'fragment_merging_skipped_reason':None if fragment_policy else 'SWITCH_DISABLED',
+               'before_complete':complete(data,incumbent),
+               'budget_seconds': seconds, 'before_fee': incumbent['total_fee'],
                'after_fee': incumbent['total_fee'], 'candidate_count': 0,
                'new_network_calls': 0, 'methods': [], 'global_optimality_proven': False}
     if cancelled():
         raise StopSearch('CANCELLED')
     if (seconds < .05 or not callable(getattr(road, 'known_segment', None))
-            or not complete(data, incumbent)):
+            or (not complete(data, incumbent) and not fragment_policy)):
         details.update(skipped=True, stop_reason='NO_UNUSED_MACRO_BUDGET_OR_COMPLETE_START',
                        elapsed_seconds=round(time.monotonic() - started, 4))
         return incumbent, details, []
-    capped = isinstance(road, DrivingRoad)
+    capped = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     original_limit = getattr(road, 'call_limit', None)
     calls_before = getattr(road, 'calls', 0)
     if capped:
@@ -195,11 +202,61 @@ def _pre_selection_macros(data, road, incumbent, budget, seed, cancelled):
                                       lambda: polish_route_orders(search, added)))
             return {'before_fee': before, 'after_fee': search.best['total_fee'], 'methods': methods}
 
-        details['methods'].append(_phase(search, 'activate_unused_cars', seconds * .5, activate))
-        details['methods'].append(_phase(search, 'compatible_long_columns', seconds * .5,
-                                        lambda: seed_long_routes(search, scope='compatible')))
+        if fragment_policy:
+            from app.route_fragment_merging import generate_fragment_routes, greedy_fragment_pack
+            def run_phase(name, allowance, action, phase_details=None):
+                # Record entry before work: a global/local stop can arrive
+                # after a complete improvement, before _phase returns its row.
+                phase_started, phase_compute = time.monotonic(), search.compute_elapsed()
+                before_fee = search.best['total_fee']
+                row = {'method':name, 'action_entered':False,
+                       'complete_before':complete(data,search.best)}
+                if phase_details is not None:
+                    row['details'] = phase_details
+                details['methods'].append(row)
+                def entered():
+                    row['action_entered'] = True
+                    return action()
+                try:
+                    row.update(_phase(search,name,allowance,entered))
+                except StopSearch as exc:
+                    row.update(stop_reason=exc.reason, recorded_on_interruption=True,
+                        elapsed_seconds=round(time.monotonic()-phase_started,4),
+                        compute_seconds=round(search.compute_elapsed()-phase_compute,4),
+                        before_fee=before_fee, best_fee=search.best['total_fee'],
+                        fee_reduction=str(Decimal(before_fee)-Decimal(search.best['total_fee'])),
+                        dedicated_vehicles=len(search.best_routes),
+                        unassigned=len(search.best['unassigned']), candidate_count=len(search.pool))
+                    raise
+                finally:
+                    row['complete_after'] = complete(data,search.best)
+
+            run_phase('fragment_merge_orders',seconds*.65,
+                lambda:generate_fragment_routes(search,enabled=True,seconds=search.remaining(),seed=seed))
+            selection_details = {}
+            def choose_fragments():
+                proposal=greedy_fragment_pack(search,seconds=search.remaining()*.5)
+                public=selection_details
+                public.update({key:value for key,value in proposal.items() if key!='routes'})
+                public['complete_proposal_considered']=False
+                if proposal['complete_proposal']:
+                    search.consider(proposal['routes'])
+                    public['complete_proposal_considered']=True
+                public['physical_pack_attempted']=False
+                if search.remaining()>=.075:
+                    public['physical_pack_attempted']=True
+                    search.pack()
+                return public
+            run_phase('fragment_physical_selection',search.remaining(),choose_fragments,selection_details)
+        else:
+            details['methods'].append(_phase(search, 'activate_unused_cars', seconds * .5, activate))
+            details['methods'].append(_phase(search, 'compatible_long_columns', seconds * .5,
+                                            lambda: seed_long_routes(search, scope='compatible')))
     except StopSearch as exc:
-        if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+        # Return a newly proved complete win before Deep propagates the stop.
+        # Otherwise retain the existing immediate cancellation semantics.
+        if exc.reason in {'CANCELLED','WALL_BUDGET'} and not (search is not None and
+                complete(data,search.best) and result_rank(search.best)<result_rank(incumbent)):
             raise
         stopped = exc.reason
     finally:
@@ -221,7 +278,8 @@ def _pre_selection_macros(data, road, incumbent, budget, seed, cancelled):
                 recipes.append({'vehicle_id': row['vehicle_id'], 'task_ids': list(identity)})
                 if len(recipes) >= MAX_OBSERVED_RECIPES:
                     break
-        details.update(candidate_count=search.evaluations, macro_order_count=len(recipes))
+        details.update(candidate_count=search.evaluations, macro_order_count=len(recipes),
+                       after_complete=complete(data,search.best))
     details.update(after_fee=result['total_fee'], skipped=False, stop_reason=stopped,
                    elapsed_seconds=round(time.monotonic() - started, 4),
                    compute_seconds=round(max(0., budget.compute() - compute_before), 4),
@@ -256,7 +314,7 @@ def _post_selection_small_groups(data, road, incumbent, budget, seed, cancelled)
                            skipped=True, elapsed_seconds=round(time.monotonic() - started, 4), compute_seconds=0.)
         return incumbent, diagnostics
     original_limit = getattr(road, 'call_limit', None)
-    cap_io = isinstance(road, DrivingRoad)
+    cap_io = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     calls_before = road.stats().get('calls', 0)
     if cap_io:
         road.call_limit = min(road.calls, original_limit) if original_limit is not None else road.calls
@@ -305,7 +363,10 @@ def _post_selection_small_groups(data, road, incumbent, budget, seed, cancelled)
         if search.evaluations and search.remaining() >= .075:
             diagnostics['methods'].append(_phase(search, 'small_group_joint_selection', search.remaining(), search.pack))
     except StopSearch as exc:
-        if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+        # Return a newly proved complete win before Deep propagates the stop.
+        # Otherwise retain the existing immediate cancellation semantics.
+        if exc.reason in {'CANCELLED','WALL_BUDGET'} and not (search is not None and
+                complete(data,search.best) and result_rank(search.best)<result_rank(incumbent)):
             raise
         stopped = exc.reason
     finally:
@@ -337,14 +398,19 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     """
     data = normalize(body)
     budget = _Budget(road, budget_seconds, cancelled, wall_budget_seconds)
-    # Production adoption is limited to the measured 600-second large-day
-    # profile. Explicit experiment dictionaries remain independent switches;
-    # e.g. experiments={} disables expansion while retaining diagnostics.
-    switches = (DeepExperiments(generation_selection_loop=(budget.seconds >= 600 and len(data['tasks']) > 8))
+    # Daily planning keeps diagnostics, road discovery and the existing
+    # long-budget expansion rule. The five new performance experiments are
+    # not adopted as daily defaults; explicit dictionaries isolate them for
+    # reproducible research comparisons.
+    switches = (DeepExperiments(fragment_merging=False, complete_assignment_pricing=False,
+                               joint_reoptimization=False, scalable_joint_search=False,
+                               stage_budget_reservation=False, critical_edge_collection=True,
+                               generation_selection_loop=(budget.seconds >= 600 and len(data['tasks']) > 8))
                 if experiments is None else DeepExperiments.parse(experiments))
     diagnostics = SearchDiagnostics(budget, len(data['tasks'])) if switches.diagnostics else None
     notify = progress or (lambda value: None)
     stages = []
+    trace = getattr(road, 'route_stage_trace', None)
     observed = OrderedDict()
     observation_count = dropped_observations = 0
     duplicate_observations = 0
@@ -376,7 +442,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     macro_recipes = []
     optional_candidate_count = 0
     previous_job_attributes = {name: (hasattr(road, name), getattr(road, name, None))
-                               for name in ('search_diagnostics', 'deep_experiments')}
+                               for name in ('search_diagnostics', 'deep_experiments', 'priced_candidate_observer')}
     eligible_count = sum(bool(task['signature']) and any(
         car['available'] and car['warehouse_id'] == task['warehouse_id']
         and car['max_pieces'] >= task['pieces'] for car in data['vehicles'].values())
@@ -418,6 +484,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         if interrupted():
             raise StopSearch('CANCELLED' if cancelled() else 'WALL_BUDGET')
         observation_count += 1
+        if trace is not None:
+            trace.route('DEEP_OBSERVED', spec, fee=spec.get('fee'), compute_seconds=budget.compute())
         key = (spec['vehicle_id'], tuple(spec['task_ids']))
         if retention is not None:
             retention.observe(spec)
@@ -430,15 +498,27 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             duplicate_observations += 1
         stream_observer = getattr(road, 'candidate_stream_observer', None)
         if callable(stream_observer):
-            stream_observer({'kind': 'candidate', 'vehicle_id': key[0], 'task_ids': list(key[1])})
+            stream_observer({'kind': 'candidate', 'vehicle_id': key[0], 'task_ids': list(key[1]),
+                             'retention_fee':spec.get('retention_fee', spec.get('fee'))})
         if callable(previous_observer):
             previous_observer(spec)
+
+    def observe_priced(spec):
+        stream_observer = getattr(road, 'candidate_stream_observer', None)
+        if callable(stream_observer):
+            stream_observer({'kind':'priced_candidate', **spec})
+        prior = previous_job_attributes['priced_candidate_observer'][1]
+        if callable(prior):
+            prior(spec)
 
     def flush_observations():
         if retention is not None:
             retention.flush()
             observed.clear()
             observed.update(retention.entries)
+        if trace is not None:
+            for spec in observed.values():
+                trace.route('DEEP_RETAINED', spec, compute_seconds=budget.compute())
         stream_observer = getattr(road, 'candidate_stream_observer', None)
         if callable(stream_observer):
             stream_observer({'kind': 'flush'})
@@ -459,6 +539,9 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             if identity not in complete_seen:
                 complete_seen.add(identity)
                 complete_allocations.append(allocation)
+                if trace is not None:
+                    for spec in allocation['routes']:
+                        trace.route('COMPLETE_PROTECTED', spec, compute_seconds=budget.compute())
                 stream_observer = getattr(road, 'candidate_stream_observer', None)
                 if callable(stream_observer):
                     stream_observer({'kind': 'allocation', 'allocation': deepcopy(allocation)})
@@ -467,9 +550,34 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                 observe(route)
         return True
 
+    def run_optional_refinement(method, stage):
+        nonlocal optional_candidate_count
+        try:
+            strengthened, details = _optional_refinement(data, road, best_complete or best,
+                budget, seed, interrupted, method, recipes=[*macro_recipes, *observed.values()])
+        except StopSearch as exc:
+            details = getattr(exc, 'optional_refinement_diagnostics', None)
+            if details is not None:
+                optional_candidate_count += details.get('candidate_count', 0)
+                stages.append({'stage': stage, 'total_fee': (best_complete or best)['total_fee'],
+                               'elapsed_seconds': details['elapsed_seconds'], 'details': details})
+            raise
+        keep(strengthened)
+        optional_candidate_count += details.get('candidate_count', 0)
+        stages.append({'stage': stage, 'total_fee': strengthened['total_fee'],
+                       'elapsed_seconds': details['elapsed_seconds'], 'details': details})
+        if details.get('stop_reason') in {'CANCELLED', 'WALL_BUDGET'}:
+            # Protect the already checked whole-day improvement before obeying
+            # the original stop. Logging must never resume a cancelled phase.
+            budget.control()
+            raise StopSearch(details['stop_reason'])
+
     # Each source run uses the current job's isolated road object. No shared
     # Settings or module-global algorithm functions are changed between seeds.
     road.candidate_observer = observe
+    needs_prices = (callable(getattr(road, 'candidate_stream_observer', None)) or
+                    callable(previous_job_attributes['priced_candidate_observer'][1]))
+    road.priced_candidate_observer = observe_priced if needs_prices else None
     road.search_diagnostics = diagnostics
     road.deep_experiments = switches
     try:
@@ -478,11 +586,26 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             # per eligible task; retries and repair bridges may still need more.
             # With a smaller total allowance, search can still use known roads.
             road.call_limit = search_call_limit
+        if switches.critical_edge_collection:
+            from app.route_edge_discovery import collect_promising_edges
+            emit({'stage':'CRITICAL_EDGE_COLLECTION', 'message':'正在补采有潜力线路的必要道路'})
+            edge_details = {}
+            edge_stage = {'stage':'CRITICAL_EDGE_COLLECTION', 'elapsed_seconds':0., 'details':edge_details}
+            stages.append(edge_stage)
+            edge_started = time.monotonic()
+            try:
+                edge_details.update(collect_promising_edges(data, road, budget.control,
+                    incumbent=best_complete, phase_wall_seconds=max(0., budget.wall_seconds*.25-budget.elapsed()),
+                    diagnostics=edge_details))
+            finally:
+                edge_stage['elapsed_seconds'] = round(time.monotonic()-edge_started,6)
         # Construct the first search seed from the current input, without an
         # external saved plan. Its real compute belongs to the 64% allowance.
         emit({'stage': 'MULTI_START', 'message': '构建初始配送方案',
               'round_index': 0, 'round_total': 0})
         before_seed_rank = result_rank(best_complete or best)
+        seed_before_fee = (best_complete or best)['total_fee']
+        seed_before_complete = best_complete is not None
         strengthened, macro_details, macro_recipes = _pre_selection_macros(
             data, road, baseline_result(data), budget, seed, interrupted)
         seed_complete = complete(data, strengthened)
@@ -494,8 +617,13 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                          'seed_complete': seed_complete,
                          'seed_accepted': (seed_complete and result_rank(actual) < before_seed_rank
                                            and result_rank(actual) == seed_rank),
-                         'seed_fee': strengthened['total_fee'] if seed_complete else None}
+                         'seed_fee': strengthened['total_fee'] if seed_complete else None,
+                         'global_before_fee':seed_before_fee, 'global_after_fee':actual['total_fee'],
+                         'direct_fee_reduction': (str(Decimal(seed_before_fee)-Decimal(actual['total_fee']))
+                             if seed_before_complete and best_complete is not None else None)}
         stages.append({'stage': 'CURRENT_INPUT_COLD_SEED', 'total_fee': actual['total_fee'],
+                       'before_fee':seed_before_fee, 'after_fee':actual['total_fee'],
+                       'fee_reduction':macro_details['direct_fee_reduction'],
                        'complete': best_complete is not None,
                        'elapsed_seconds': macro_details['elapsed_seconds'], 'details': macro_details})
         search_allowance = budget.seconds * .64
@@ -549,6 +677,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                     'fee_reduction': str(Decimal(before_fee) - Decimal((best_complete or best)['total_fee'])),
                     'methods': result.get('algorithm', {}).get('methods', []),
                     'routing_diagnostics': result.get('algorithm', {}).get('routing_diagnostics', {}),
+                    'interrupted_native_diagnostics': result.get('algorithm', {}).get('interrupted_native_diagnostics', []),
                     'total_fee': result['total_fee'], 'complete': complete(data, result),
                     'accepted': accepted, 'stop_reason': result.get('algorithm', {}).get('stop_reason'),
                     'candidate_count': result.get('algorithm', {}).get('candidate_count', 0)}
@@ -560,13 +689,17 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         stream_observer = getattr(road, 'candidate_stream_observer', None)
         if callable(stream_observer):
             stream_observer({'kind': 'checkpoint', 'stage': 'PRE_COLUMN_SELECTION'})
+        if trace is not None:
+            trace.mark('DEEP_OBSERVED', status='COMPLETE', scope='PRE_COLUMN_SELECTION_CURRENT_RUN')
+            trace.mark('DEEP_RETAINED', status='COMPLETE', scope='PRE_COLUMN_SELECTION_CURRENT_RUN')
+            trace.mark('COMPLETE_PROTECTED', status='COMPLETE', scope='PRE_COLUMN_SELECTION_CURRENT_RUN')
         from app.route_columns import select_portfolio
         remaining = max(0., budget.seconds * .83 - budget.compute())
         before = time.monotonic()
         selection_compute_before = budget.compute()
         selection_before_fee = (best_complete or best)['total_fee']
         old_call_limit = getattr(road, 'call_limit', None)
-        cap_extra_io = isinstance(road, DrivingRoad)
+        cap_extra_io = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
         if cap_extra_io:
             road.call_limit = min(road.calls, old_call_limit) if old_call_limit is not None else road.calls
         try:
@@ -590,34 +723,21 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         keep(strengthened)
         stages.append({'stage': 'SMALL_GROUP_INTENSIFICATION', 'total_fee': strengthened['total_fee'],
                        'elapsed_seconds': small_details['elapsed_seconds'], 'details': small_details})
+        budget.control()
         if switches.joint_reoptimization:
             emit({'stage': 'COLUMN_SELECTION', 'optimization_phase': 'JOINT_REOPTIMIZATION',
                   'message': '正在联合比较相关线路与共配费用'})
-            strengthened, details = _optional_refinement(data, road, best_complete or best,
-                budget, seed, interrupted, 'joint', recipes=[*macro_recipes, *observed.values()])
-            keep(strengthened)
-            optional_candidate_count += details.get('candidate_count', 0)
-            stages.append({'stage': 'JOINT_REOPTIMIZATION', 'total_fee': strengthened['total_fee'],
-                           'elapsed_seconds': details['elapsed_seconds'], 'details': details})
+            run_optional_refinement('joint', 'JOINT_REOPTIMIZATION')
+            budget.control()
         if switches.quote_group_rotation or switches.generation_selection_loop or switches.gain_time_allocation:
             emit({'stage': 'COLUMN_SELECTION', 'optimization_phase': 'CANDIDATE_EXPANSION',
                   'message': '正在生成并比较新的线路组合'})
-            strengthened, details = _optional_refinement(data, road, best_complete or best,
-                budget, seed, interrupted, 'cycles', recipes=[*macro_recipes, *observed.values()])
-            keep(strengthened)
-            optional_candidate_count += details.get('candidate_count', 0)
-            stages.append({'stage': 'CANDIDATE_EXPANSION', 'total_fee': strengthened['total_fee'],
-                           'elapsed_seconds': details['elapsed_seconds'], 'details': details})
-        if switches.critical_edge_collection:
-            # Evidence changes are a different road experiment. The live graph
-            # collector produces a separately frozen graph for paired runs;
-            # never silently mix extra roads into only the candidate side.
-            stages.append({'stage': 'CRITICAL_EDGE_COLLECTION', 'elapsed_seconds': 0.,
-                'details': {'stop_reason': 'SEPARATE_FROZEN_GRAPH_REQUIRED',
-                    'ranked_missing_edges': (diagnostics.snapshot()['missing_edges'] if diagnostics else []),
-                    'new_network_calls': 0}})
+            run_optional_refinement('cycles', 'CANDIDATE_EXPANSION')
     except StopSearch as exc:
         stopped = exc.reason
+        if trace is not None:
+            for stage in ('DEEP_OBSERVED','DEEP_RETAINED','COMPLETE_PROTECTED'):
+                trace.mark(stage, status='INTERRUPTED', reason=exc.reason, scope='CURRENT_RUN')
     finally:
         if reserve_calls:
             road.call_limit = original_call_limit
@@ -674,7 +794,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                     repair_control=optional_validation_control, progress=emit,
                     selection_seconds=lambda: min(15., max(0., min(budget.seconds - budget.compute(),
                         budget.wall_seconds - budget.elapsed() - proof_reserve))),
-                    complete_recipes=complete_allocations, max_bridge_edges=bridge_limit)
+                    complete_recipes=complete_allocations, max_bridge_edges=None if getattr(road, 'production_planning', False) else bridge_limit)
             except StopSearch as exc:
                 stopped = exc.reason
                 if exc.reason != 'CANCELLED':
@@ -711,6 +831,17 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             validation = _offline_validation(data, chosen, road)
     if not complete(data, chosen):
         raise ApiError(422, 'DEEP_NO_FEASIBLE_PLAN', '深度规划未找到覆盖全部门店的完整可行方案，未保存新方案。')
+    for stage_name, enabled in [('JOINT_REOPTIMIZATION', switches.joint_reoptimization),
+                                ('CANDIDATE_EXPANSION', switches.quote_group_rotation or switches.generation_selection_loop or switches.gain_time_allocation),
+                                ('CRITICAL_EDGE_COLLECTION', switches.critical_edge_collection)]:
+        if not any(row['stage'] == stage_name for row in stages):
+            stages.append({'stage':stage_name, 'elapsed_seconds':0., 'details':{
+                'skipped':True, 'stop_reason':'SWITCH_DISABLED' if not enabled else 'NOT_REACHED_' + stopped,
+                'candidate_count':0, 'fee_reduction':'0.00'}})
+    if trace is not None:
+        for route in chosen['routes']:
+            trace.route('FINAL', route, fee=route['fee'], compute_seconds=budget.compute())
+        trace.mark('FINAL',status='COMPLETE',scope='INDEPENDENTLY_VERIFIED_FINAL_ALLOCATION')
     source_algorithm = deepcopy(chosen.get('algorithm', {}))
     retention_details = (retention.diagnostics() if retention is not None else
         {'policy': 'first', 'limit': max_recipes, 'generated_observations': observation_count,
@@ -734,6 +865,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     chosen['algorithm'] = {'mode': 'DAILY_DEEP_PORTFOLIO', 'stop_reason': stopped,
         'budget_seconds': budget_seconds, 'elapsed_seconds': round(budget.elapsed(), 4),
         'compute_seconds': round(budget.compute(), 4), 'wall_budget_seconds': budget.wall_seconds,
+        'source_provenance': collect_source_provenance(),
         'experiments': asdict(switches),
         'diagnostics': diagnostics.snapshot() if diagnostics is not None else {'enabled': False},
         'seed': seed, 'round_count': len(rounds), 'rounds': rounds, 'stages': stages,
@@ -753,7 +885,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         'complete_round_allocations': len(complete_allocations),
         'road_stats': road.stats(), 'road_call_budget': call_budget,
         'selection_diagnostics': source_algorithm,
-        'optimality_proven': False, 'global_225_task_optimality_proven': False,
+        'optimality_proven': False, 'global_demand_optimality_proven': False,
         'candidate_pool_optimal': False, 'cost_candidate_pool_optimal': False,
         'cost_objective': 'min_unassigned_then_total_fee_then_distance_then_vehicles',
         'final_plan_independently_checked': True, 'same_frozen_input_all_rounds': True,
@@ -771,23 +903,35 @@ def baseline_result(data):
 def _optional_refinement(data, road, incumbent, budget, seed, cancelled, method, *, recipes=()):
     from app.route_search import JointSearch
     started, compute_before = time.monotonic(), budget.compute()
-    seconds = min(60., budget.seconds * .15, max(0., budget.seconds * .83 - budget.compute()))
+    raw_switches = getattr(road, 'deep_experiments', None)
+    switches = DeepExperiments.parse(vars(raw_switches) if raw_switches is not None and not isinstance(raw_switches, (dict, DeepExperiments)) else raw_switches)
+    reserved = switches.stage_budget_reservation and (
+        switches.joint_reoptimization or switches.quote_group_rotation or
+        switches.generation_selection_loop or switches.gain_time_allocation)
+    ceiling = .95 if reserved else .83
+    available = max(0., budget.seconds * ceiling - budget.compute())
+    seconds = (available if reserved and method == 'cycles' else
+               min(240. if reserved else 60., budget.seconds * .15, available))
     details = {'before_fee': incumbent['total_fee'], 'after_fee': incumbent['total_fee'],
                'budget_seconds': seconds, 'skipped': seconds < .1, 'candidate_count': 0,
                'stop_reason': 'NO_UNUSED_REFINEMENT_BUDGET', 'elapsed_seconds': 0.}
-    if seconds < .1 or not complete(data, incumbent):
+    if not complete(data, incumbent):
+        details.update(skipped=True, stop_reason='NO_COMPLETE_INCUMBENT')
+        return incumbent, details
+    if seconds < .1:
         return incumbent, details
     original_limit = getattr(road, 'call_limit', None)
-    capped = isinstance(road, DrivingRoad)
+    capped = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     if capped:
         road.call_limit = road.calls if original_limit is None else min(road.calls, original_limit)
     search = None
+    global_stop = None
     try:
         search = JointSearch(data, road, seconds, seed, cancelled, incumbent)
         local_control = search.control
         def control():
             budget.control()
-            if budget.compute() >= budget.seconds * .83:
+            if budget.compute() >= budget.seconds * ceiling:
                 raise StopSearch('REFINEMENT_BUDGET')
             local_control()
         search.control = control
@@ -815,7 +959,7 @@ def _optional_refinement(data, road, incumbent, budget, seed, cancelled, method,
             diagnostics.counts['imported_previous_orders'] += imported
         if method == 'joint':
             from app.route_joint_reoptimization import reoptimize_joint_routes
-            details.update(reoptimize_joint_routes(search))
+            details.update(reoptimize_joint_routes(search, scalable=switches.scalable_joint_search))
         else:
             from app.route_adaptive_cycles import expand_candidate_cycles
             switches = road.deep_experiments
@@ -823,9 +967,16 @@ def _optional_refinement(data, road, incumbent, budget, seed, cancelled, method,
                 selection_loop=switches.generation_selection_loop, gain_allocation=switches.gain_time_allocation))
         details['skipped'] = False
     except StopSearch as exc:
+        attribute = ('joint_reoptimization_diagnostics' if method == 'joint'
+                     else 'candidate_expansion_diagnostics')
+        # These dictionaries have already been finalized by the stopped helper.
+        # Preserve nested native routing evidence and actual entered-stage work.
+        attached = getattr(exc, attribute, None)
+        if isinstance(attached, dict):
+            details.update(attached)
+        details.update(skipped=False, stop_reason=exc.reason)
         if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
-            raise
-        details['stop_reason'] = exc.reason
+            global_stop = exc
     finally:
         if capped:
             road.call_limit = original_limit
@@ -838,6 +989,9 @@ def _optional_refinement(data, road, incumbent, budget, seed, cancelled, method,
                    fee_reduction=str(Decimal(incumbent['total_fee']) - Decimal(result['total_fee'])),
                    elapsed_seconds=round(time.monotonic() - started, 6),
                    compute_seconds=round(budget.compute() - compute_before, 6))
+    if global_stop is not None and result is incumbent:
+        global_stop.optional_refinement_diagnostics = details
+        raise global_stop
     return result, details
 
 

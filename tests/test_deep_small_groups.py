@@ -1,4 +1,4 @@
-"""A single optional small-group phase must preserve the daily search budget."""
+"""Isolated legacy seed/small-group behavior with newer daily stages disabled."""
 from copy import deepcopy
 from decimal import Decimal
 
@@ -178,7 +178,7 @@ def test_daily_runs_current_input_seed_then_original_rounds_pool_and_one_post_ph
         return real_seed(search)
     monkeypatch.setattr(small, 'seed_small_groups', seed)
     progress = []
-    result = optimize_deep(body, road, 20, seed=3, initial_result=None, progress=progress.append)
+    result = optimize_deep(body, road, 20, seed=3, initial_result=None, progress=progress.append, experiments={})
     assert events == ['pool', 'small']
     seed = result['algorithm']['stages'][0]
     assert seed['stage'] == 'CURRENT_INPUT_COLD_SEED' and seed['total_fee'] == '13.00'
@@ -216,7 +216,7 @@ def test_true_cold_uses_exactly_one_independent_native_first_solution(monkeypatc
     preserve_tail(monkeypatch)
     monkeypatch.setattr('app.route_deep._pre_selection_macros',
         lambda data, road, baseline, *args: (deepcopy(current), {'elapsed_seconds': 0}, []))
-    result = optimize_deep(body, road, seconds, seed=base_seed, initial_result=None)
+    result = optimize_deep(body, road, seconds, seed=base_seed, initial_result=None, experiments={})
     rounds = result['algorithm']['rounds']
     assert len(seen) == len(rounds) == expected_rounds
     assert [row['kwargs']['initial_result'] is None for row in seen] == [index == 1 for index in range(expected_rounds)]
@@ -249,7 +249,7 @@ def test_external_warm_argument_keeps_every_round_initialized_even_if_rejected(m
     preserve_tail(monkeypatch)
     monkeypatch.setattr('app.route_deep._pre_selection_macros',
         lambda data, road, baseline, *args: (deepcopy(current), {'elapsed_seconds': 0}, []))
-    result = optimize_deep(body, road, 300, initial_result=external)
+    result = optimize_deep(body, road, 300, initial_result=external, experiments={})
     assert len(seen) == 5 and all(row['kwargs']['initial_result'] is not None for row in seen)
     assert all(row['kwargs']['initial_result']['total_fee'] == '13.00' for row in seen)
     assert all(row['initialization_source'] == 'CURRENT_BEST'
@@ -278,7 +278,7 @@ def test_independent_native_round_cannot_displace_a_lower_complete_incumbent(mon
     # the first source round supplies the same checked 13-unit incumbent.
     seen = stub_rounds(monkeypatch, [protected, candidate, protected, protected])
     preserve_tail(monkeypatch)
-    result = optimize_deep(body, road, 30, initial_result=None)
+    result = optimize_deep(body, road, 30, initial_result=None, experiments={})
     assert seen[1]['kwargs']['initial_result'] is None
     assert [row['kwargs']['initial_result']['total_fee'] for row in seen[2:]] == ['13.00', '13.00']
     assert result['algorithm']['rounds'][1]['total_fee'] == candidate['total_fee']
@@ -296,7 +296,7 @@ def test_mandatory_baseline_skips_seed_without_claiming_a_complete_low_fee(monke
     seen = stub_rounds(monkeypatch, [value])
     preserve_tail(monkeypatch)
     progress = []
-    result = optimize_deep(body, road, 20, initial_result=None, progress=progress.append)
+    result = optimize_deep(body, road, 20, initial_result=None, progress=progress.append, experiments={})
     seed = result['algorithm']['stages'][0]
     assert seed['stage'] == 'CURRENT_INPUT_COLD_SEED' and seed['complete'] is False
     assert seed['details']['skipped'] and seed['details']['candidate_count'] == 0
@@ -323,7 +323,7 @@ def test_lower_verified_warm_plan_survives_more_expensive_or_partial_current_inp
             assert incumbent['routes'] == [] and incumbent['total_fee'] == '400.00'
             return deepcopy(more_expensive), {'elapsed_seconds': 0}, []
         monkeypatch.setattr('app.route_deep._pre_selection_macros', seed)
-    result = optimize_deep(body, road, 20, initial_result=warm)
+    result = optimize_deep(body, road, 20, initial_result=warm, experiments={})
     stage = result['algorithm']['stages'][0]
     assert stage['complete'] and stage['total_fee'] == '13.00'
     assert stage['details']['seed_origin'] == 'CURRENT_INPUT'
@@ -362,7 +362,7 @@ def test_current_input_seed_compute_is_charged_to_the_original_source_allowance(
         selection_seconds.append(kwargs['seconds'])
         return deepcopy(results[0])
     monkeypatch.setattr('app.route_columns.select_portfolio', select)
-    result = optimize_deep(body, road, 30, seed=0, initial_result=None)
+    result = optimize_deep(body, road, 30, seed=0, initial_result=None, experiments={})
     assert calls == ['seed', 104729, 209458, 314187, 418916]
     assert independent_rounds == [False, True, False, False]
     assert durations[0] == pytest.approx(4.35)
@@ -382,7 +382,7 @@ def test_cancel_before_first_round_returns_the_verified_current_seed_and_restore
         state.update(cancelled=True, strict_reads=road.strict_reads)
         raise StopSearch('CANCELLED')
     monkeypatch.setattr('app.route_deep.optimize_hybrid', cancel)
-    result = optimize_deep(body, road, 20, cancelled=lambda: state['cancelled'], initial_result=None)
+    result = optimize_deep(body, road, 20, cancelled=lambda: state['cancelled'], initial_result=None, experiments={})
     assert result['total_fee'] == '13.00' and complete(normalize(body), result)
     assert result['algorithm']['stop_reason'] == 'CANCELLED'
     assert result['algorithm']['stages'][0]['details']['seed_accepted'] is True
@@ -403,7 +403,7 @@ def test_early_seed_sees_reserved_search_call_cap_and_cancellation_restores_it(m
         state['cancelled'] = True
         raise StopSearch('CANCELLED')
     monkeypatch.setattr('app.route_deep._pre_selection_macros', cancel_seed)
-    result = optimize_deep(body, road, 20, initial_result=warm, cancelled=lambda: state['cancelled'])
+    result = optimize_deep(body, road, 20, initial_result=warm, cancelled=lambda: state['cancelled'], experiments={})
     assert result['total_fee'] == warm['total_fee']
     assert result['algorithm']['stop_reason'] == 'CANCELLED'
     assert road.call_limit == 10 and road.calls == 0 and road.candidate_observer is prior
@@ -452,7 +452,7 @@ def test_source_observations_keep_fifo_distinct_orders_without_fee_ranking(monke
         received.extend(deepcopy(kwargs['candidate_recipes']))
         return deepcopy(value)
     monkeypatch.setattr('app.route_columns.select_portfolio', select)
-    result = optimize_deep(body, road, 20)
+    result = optimize_deep(body, road, 20, experiments={})
     assert received == [first, reverse, other]
     assert all(set(spec) == {'vehicle_id', 'task_ids'} for spec in received)
     assert result['algorithm']['distinct_route_count'] == 3
@@ -474,7 +474,7 @@ def test_actual_initial_argument_and_validation_determine_cold_flags(monkeypatch
     monkeypatch.setattr('app.route_deep._post_selection_small_groups',
         lambda data, road, incumbent, *args: (incumbent, {'elapsed_seconds': 0}))
     monkeypatch.setattr('app.route_columns.select_portfolio', lambda *args, **kwargs: deepcopy(value))
-    result = optimize_deep(body, road, 20, initial_result=candidate)
+    result = optimize_deep(body, road, 20, initial_result=candidate, experiments={})
     assert result['algorithm']['initial_plan_supplied'] is supplied
     assert result['algorithm']['initial_plan_accepted'] is accepted
     assert result['total_fee'] == value['total_fee'] and complete(normalize(body), result)
@@ -511,7 +511,7 @@ def test_full_seed_fifo_preserves_complete_allocations_and_independent_useful_re
         received.update(deepcopy(kwargs))
         return deepcopy(improved)
     monkeypatch.setattr('app.route_columns.select_portfolio', select)
-    result = optimize_deep(body, road, 20)
+    result = optimize_deep(body, road, 20, experiments={})
     assert round_inputs == ['13.00', None, '13.00', '13.00']
     assert result['total_fee'] == '13.00' and complete(normalize(body), result)
     assert result['algorithm']['distinct_route_count'] == 10000
@@ -537,7 +537,7 @@ def test_cancel_during_post_retains_current_seed_and_restores_observer(monkeypat
         state['cancelled'] = True
         raise StopSearch('CANCELLED')
     monkeypatch.setattr('app.route_small_groups.seed_small_groups', cancel)
-    result = optimize_deep(body, road, 20, cancelled=lambda: state['cancelled'])
+    result = optimize_deep(body, road, 20, cancelled=lambda: state['cancelled'], experiments={})
     assert complete(normalize(body), result) and result['total_fee'] == '13.00'
     macro = next(row for row in result['algorithm']['stages'] if row['stage'] == 'CURRENT_INPUT_COLD_SEED')
     assert macro['total_fee'] == result['total_fee']

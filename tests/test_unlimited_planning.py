@@ -19,22 +19,30 @@ from test_routing_engine import truck_data
 from test_stage4 import basis
 
 
-@pytest.mark.parametrize('value',[None,'unlimited','none',''])
+@pytest.mark.parametrize('value',[None,0,10,350,1000,'unlimited','none',''])
 def test_unlimited_config_and_job_request_keep_no_count_ceiling(value):
     settings=Settings(_env_file=None,driving_job_max_calls=value)
     assert settings.driving_job_max_calls is None
     assert NewJob(snapshot_id='S',expected_head=0).call_limit is None
-    assert NewJob(snapshot_id='S',expected_head=0,call_limit=1000).call_limit==1000
+    assert NewJob(snapshot_id='S',expected_head=0,call_limit=1000).call_limit is None
+    settings.driving_job_max_calls=350
+    assert settings.road_job_max_calls is None
+
+
+@pytest.mark.parametrize('value',[True,-1,'350'])
+def test_obsolete_call_allowance_does_not_weaken_request_validation(value):
+    with pytest.raises(ValidationError):NewJob(snapshot_id='S',expected_head=0,call_limit=value)
 
 
 def test_unlimited_adapter_can_pass_ten_calls_but_still_paces_caches_and_cancels(settings,tmp_path):
-    settings.amap_web_service_key=SecretStr('TEST_ONLY');clock=Clock();v,a,b=truck_data();starts=[]
+    settings.amap_web_service_key=SecretStr('TEST_ONLY');clock=Clock();v,a,b=truck_data();starts=[];cancel=[False]
     def handler(request):
         starts.append(clock());return httpx.Response(200,json=response())
-    road=DrivingRoad(settings,None,transport=httpx.MockTransport(handler),limiter=pacer(tmp_path/'qps.db',clock),cancelled=lambda:len(starts)>=12)
+    road=DrivingRoad(settings,None,transport=httpx.MockTransport(handler),limiter=pacer(tmp_path/'qps.db',clock),cancelled=lambda:cancel[0])
     destinations=[{**b,'id':'S'+str(i),'longitude':str(121.5+i*.001)} for i in range(12)]
     for destination in destinations:road.segment(v,a,destination,AT)
     assert road.calls==12 and road.stats()['call_limit'] is None and starts[-1]-starts[0]>11/3
+    cancel[0]=True
     road.segment(v,a,destinations[0],AT);assert road.hits==1 and road.calls==12
     with pytest.raises(RoadError) as error:road.segment(v,a,{**b,'id':'NEW'},AT)
     assert error.value.code=='CANCELLED' and road.calls==12

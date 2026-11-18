@@ -3,14 +3,15 @@ import json
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api import ApiError, Identity, authenticated, database, event
 from app.models import InputSnapshot, PlanningJob, PlanVersion
 from app.plan_export import export_xlsx
-from app.plan_service import append_version, detail, expect_head, job_view, meta, verified_body
+from app.plan_service import (append_version, default_wall_wait_policy, detail, expect_head,
+                              job_view, meta, planning_wall_budget_seconds, verified_body)
 from app.planning_inputs import encode, input_context
 from app.road_service import FixtureRoad, load_fixture
 from app.auto_dedicated import allocate_dedicated
@@ -43,11 +44,19 @@ class NewJob(Payload):
     draft: Draft | None=None
     parent_id: str | None=Field(default=None,max_length=36)
     budget_seconds: int=Field(default=300,ge=1,le=24000)
+    wall_budget_seconds: float | None=Field(default=None,ge=1,le=28800,allow_inf_nan=False)
     call_limit: int | None=Field(default=None,ge=0)
     seed: int=Field(default=0,ge=0,le=2147483647)
     note: str=Field(default='',max_length=240)
     optimize_routes: bool=False
     refresh_roads: bool=False
+
+    @field_validator('call_limit', mode='before')
+    @classmethod
+    def production_has_no_total_call_ceiling(cls, value):
+        # Accept old clients without retaining their obsolete total ceilings.
+        # Strict invalid types/negative values still reach normal validation.
+        return None if value is None or (isinstance(value, int) and not isinstance(value, bool) and value >= 0) else value
 
 
 class VersionAction(Payload):
@@ -66,7 +75,10 @@ def capabilities(request:Request,identity:Identity=Depends(authenticated)):
     s=request.app.state.settings
     return {'truck_key_configured':bool(s.amap_web_service_key),'live_calls_enabled':s.road_calls_enabled,
             'road_source':s.planning_road_source,'route_mode':s.planning_route_mode,
-            'max_calls':s.road_job_max_calls,'max_budget_seconds':24000,'default_budget_seconds':300,
+            'max_calls':None,'total_call_policy':'PRODUCTION_UNLIMITED',
+            'max_budget_seconds':24000,'default_budget_seconds':300,
+            'default_wall_budget_seconds':planning_wall_budget_seconds(300),
+            'wall_wait_policy':default_wall_wait_policy(),
             'automatic_workflow':'DEEP_PORTFOLIO','automatic_road_verification':True,
             'qps':s.amap_web_qps,'live_time_verified':False,
             'notice':'普通驾车参考：未核验货车限行及计划发车时刻，路线、时序和费用需人工核对，不能确认执行。' if s.planning_route_mode=='DRIVING' else '固定样例已开放；实际货车道路需要独立验证指定发车时间、车牌颜色与限行能力。未核验的专车阻止确认。'}
@@ -94,9 +106,7 @@ def create_job(payload:NewJob,request:Request,identity:Identity=Depends(authenti
         raise ApiError(422,'ROAD_REFRESH_UNSUPPORTED','当前道路模式不支持强制刷新，请取消刷新选项后按当前道路配置核算。')
     if payload.refresh_roads and not s.road_calls_enabled:
         raise ApiError(422,'LIVE_CALLS_DISABLED','当前入口未开放实时道路刷新，可取消刷新选项后使用已有实路参考。')
-    if payload.call_limit and (not s.road_calls_enabled or not s.amap_web_service_key):
-        raise ApiError(422,'LIVE_CALLS_DISABLED','真实调用未启用，可查看缓存轨迹或使用固定测试道路。')
-    if payload.call_limit is None and s.road_calls_enabled and not s.amap_web_service_key:
+    if s.road_calls_enabled and not s.amap_web_service_key:
         raise ApiError(422,'LIVE_KEY_MISSING','高德Web服务Key尚未配置。')
     job=PlanningJob(delivery_date=snapshot.delivery_date,group_id=snapshot.group_id,snapshot_id=snapshot.id,kind=payload.kind,
                     request=encode(payload.model_dump()),created_by=identity.account.id,created_by_name=identity.account.display_name)

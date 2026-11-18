@@ -75,14 +75,16 @@ def _default_lookup(road):
 
 
 class _MeasuredModel:
-    """Small native slices make cancellation observable even without a solution."""
+    """Measured routing proposals in the existing one-second native slices."""
     def __init__(self, data, edge_lookup, control, seed, *, vehicle_independent,
                  strategy, first_strategy, region_surrogate='PER_STORE', common_penalty_multiplier=Fraction(1),
-                 candidate_retention='first', candidate_stream_observer=None):
+                 candidate_retention='first', candidate_stream_observer=None,
+                 stage_trace=None, trace_scope=None):
         pywrapcp, enums = _ortools_api()
         self.api, self.enums = pywrapcp, enums
         self.data, self.control = data, control
         self.strategy, self.first_strategy = strategy, first_strategy
+        self.stage_trace, self.trace_scope = stage_trace, trace_scope
         self.candidate_specs = {}; self.solution_count = 0; self.native_slices = 0
         self.retention = None
         if candidate_retention != 'first':
@@ -329,7 +331,7 @@ class _MeasuredModel:
         def solution_callback():
             # No network or quotation runs inside a native solver callback.
             self.solution_count += 1
-            if (self.retention is None and self.candidate_stream_observer is None
+            if (self.retention is None and self.candidate_stream_observer is None and self.stage_trace is None
                     and len(self.candidate_specs) >= 10000):
                 return
             self._collect(lambda index: self.routing.NextVar(index).Value())
@@ -363,6 +365,8 @@ class _MeasuredModel:
             if ids:
                 key = vehicle['id'], tuple(ids)
                 row = {'vehicle_id': vehicle['id'], 'task_ids': ids}
+                if self.stage_trace is not None:
+                    self.stage_trace.route('NATIVE_PROPOSED', row, scope=self.trace_scope)
                 if self.candidate_stream_observer is not None:
                     self.candidate_stream_observer(row)
                 if self.retention is not None:
@@ -376,7 +380,7 @@ class _MeasuredModel:
         parameters = self.api.DefaultRoutingSearchParameters()
         parameters.first_solution_strategy = getattr(self.enums.FirstSolutionStrategy, self.first_strategy)
         parameters.local_search_metaheuristic = getattr(self.enums.LocalSearchMetaheuristic, self.strategy)
-        parameters.time_limit.FromMilliseconds(max(1, min(1000, int(seconds * 1000))))
+        parameters.time_limit.FromMilliseconds(max(1, int(min(1., seconds) * 1000)))
         parameters.lns_time_limit.FromMilliseconds(50)
         parameters.log_search = False
         return parameters
@@ -411,7 +415,9 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                                 *, initial_routes=(), vehicle_independent=False,
                                 strategy='GUIDED_LOCAL_SEARCH', first_strategy='PARALLEL_CHEAPEST_INSERTION',
                                 region_surrogate='PER_STORE', common_penalty_multiplier=1, on_batch=None,
-                                candidate_retention='first', candidate_stream_observer=None):
+                                candidate_retention='first', candidate_stream_observer=None,
+                                stage_trace=None,
+                                complete_assignment_pricing=False, on_assignment=None):
     """Return route *specifications* and diagnostics; specs carry no quoted fee.
 
     ``edge_lookup(vehicle, origin, destination)`` must be a read-only lookup of
@@ -420,6 +426,10 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
     """
     factor = _penalty_factor(common_penalty_multiplier)
     started = monotonic(); deadline = started + max(0, time_limit)
+    trace_scope = stage_trace.scope('NATIVE') if stage_trace is not None else None
+    if stage_trace is not None:
+        stage_trace.mark('NATIVE_PROPOSED', status='ENTERED', scope=trace_scope)
+        stage_trace.mark('NATIVE_RETAINED', status='ENTERED', scope=trace_scope)
     def control():
         if cancelled():
             raise StopSearch('CANCELLED')
@@ -437,6 +447,18 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
         raise ValueError('Unsupported OR-Tools search variant')
     if candidate_retention not in {'first', 'batch_dedup', 'diversity'}:
         raise ValueError('Unsupported candidate retention policy')
+    if not isinstance(complete_assignment_pricing,bool):
+        raise ValueError('complete_assignment_pricing must be a boolean')
+    assignment_enabled=complete_assignment_pricing and callable(on_assignment)
+    assignment_reserve=min(.5,max(0.,time_limit*.15)) if assignment_enabled else 0.
+    assignment_details={'enabled':complete_assignment_pricing,'host_callback_present':callable(on_assignment),
+        'native_time_reserve_seconds':assignment_reserve,'assignment_count':0,
+        'callback_seconds':0.,'direct_fee_reduction':'0.00','records':[],
+        'quotation_inside_native_callback':False,'ordinary_pool_cap_applied':False}
+    diagnostics['complete_assignment_pricing']=assignment_details
+    if stage_trace is not None:
+        stage_trace.mark('NATIVE_ASSIGNMENT',status='ENTERED' if assignment_enabled else 'SKIPPED',
+            reason=None if assignment_enabled else 'SWITCH_DISABLED' if not complete_assignment_pricing else 'NO_HOST_CALLBACK',scope=trace_scope)
     diagnostics['candidate_retention_policy'] = candidate_retention
     model = None; stop = 'SEARCH_COMPLETED'; best_specs = []
     try:
@@ -444,14 +466,51 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
         model = _MeasuredModel(data, edge_lookup, control, seed, vehicle_independent=vehicle_independent,
                                strategy=strategy, first_strategy=first_strategy, region_surrogate=region_surrogate,
                                common_penalty_multiplier=factor, candidate_retention=candidate_retention,
-                               candidate_stream_observer=candidate_stream_observer)
+                               candidate_stream_observer=candidate_stream_observer,
+                               stage_trace=stage_trace, trace_scope=trace_scope)
         remaining = deadline - monotonic()
         assignment = model.warm_start(initial_routes, remaining) if initial_routes else None
         emitted = set()
-        while monotonic() < deadline:
-            solution, best_specs = model.solve(deadline - monotonic(), assignment)
+        solve_deadline=deadline-assignment_reserve
+        while monotonic() < solve_deadline:
+            solution, best_specs = model.solve(solve_deadline - monotonic(), assignment)
             if solution is not None:
                 assignment = solution
+                if assignment_enabled:
+                    # A full returned assignment has its own channel, even if
+                    # the ordinary candidate buffers are full. All pricing is
+                    # after Solve* returned to Python, before ordinary batches.
+                    record={'slice':model.native_slices,'input_routes':len(best_specs)}
+                    assignment_details['records'].append(record)
+                    assignment_details['assignment_count']+=1
+                    if stage_trace is not None:
+                        for row in best_specs:stage_trace.route('NATIVE_ASSIGNMENT',row,status='DELIVERED',scope=trace_scope)
+                    if candidate_stream_observer is not None:
+                        candidate_stream_observer({'kind':'native_assignment','slice':model.native_slices,
+                                                   'routes':deepcopy(best_specs)})
+                    callback_started=monotonic()
+                    try:
+                        details=on_assignment(best_specs)
+                        if isinstance(details,dict):
+                            record.update(details)
+                            assignment_details['direct_fee_reduction']=str(Decimal(assignment_details['direct_fee_reduction'])+
+                                Decimal(details.get('direct_fee_reduction','0.00')))
+                    except StopSearch as exc:
+                        # The host may have accepted and protected a complete
+                        # actual win immediately before a local/global stop.
+                        # Its callback then cannot return normally; preserve
+                        # the final record without swallowing that stop or
+                        # performing any additional pricing/road work here.
+                        details=getattr(exc,'assignment_pricing_record',None)
+                        if isinstance(details,dict):
+                            record.update(details)
+                            assignment_details['direct_fee_reduction']=str(Decimal(assignment_details['direct_fee_reduction'])+
+                                Decimal(details.get('direct_fee_reduction','0.00')))
+                        record['stop_reason']=exc.reason
+                        raise
+                    finally:
+                        record['callback_seconds']=round(monotonic()-callback_started,6)
+                        assignment_details['callback_seconds']+=record['callback_seconds']
             if model.retention is not None:
                 # Preserve the latest complete native assignment above before
                 # budgeted batch work: a timeout may abandon ordinary proposals.
@@ -463,6 +522,9 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                 # alternative columns from the native search trace.
                 ordered = { (r['vehicle_id'], tuple(r['task_ids'])):r for r in [*best_specs, *pending] }
                 if ordered:
+                    if stage_trace is not None:
+                        for row in ordered.values():
+                            stage_trace.route('NATIVE_RETAINED', row, status='TO_PRICING_BATCH', scope=trace_scope)
                     on_batch(list(ordered.values()))
                     emitted.update(ordered)
                     emitted.intersection_update(set(model.candidate_specs) | {(r['vehicle_id'], tuple(r['task_ids'])) for r in best_specs})
@@ -471,7 +533,18 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                 break
     except StopSearch as exc:
         stop = exc.reason
-        if exc.reason == 'CANCELLED':
+        if exc.reason in {'CANCELLED','WALL_BUDGET'}:
+            # Carry already available diagnostics to the host without another
+            # route walk, metric evaluation or publication after a global stop.
+            diagnostics.update(stop_reason=exc.reason,elapsed_seconds=round(monotonic()-started,4))
+            if model is not None:
+                diagnostics.update(native_slices=model.native_slices,
+                    solution_count=model.solution_count,route_specifications=len(model.candidate_specs))
+            exc.native_diagnostics=diagnostics
+            if stage_trace is not None:
+                for stage in ('NATIVE_PROPOSED', 'NATIVE_RETAINED'):
+                    stage_trace.mark(stage, status='INTERRUPTED', reason=exc.reason, scope=trace_scope)
+                if assignment_enabled:stage_trace.mark('NATIVE_ASSIGNMENT',status='INTERRUPTED',reason=exc.reason,scope=trace_scope)
             if model is not None:
                 model.dispose()
             raise
@@ -497,6 +570,13 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
     if model is not None:
         rows = list({(r['vehicle_id'], tuple(r['task_ids'])):r for r in [*rows, *best_specs]}.values())
     diagnostics.update(stop_reason=stop, route_specifications=len(rows), elapsed_seconds=round(monotonic() - started, 4))
+    if stage_trace is not None:
+        for row in rows:
+            stage_trace.route('NATIVE_RETAINED', row, status='RETURNED', scope=trace_scope)
+        status = 'COMPLETE' if stop == 'SEARCH_COMPLETED' else 'INTERRUPTED' if model is not None else 'SKIPPED'
+        for stage in ('NATIVE_PROPOSED', 'NATIVE_RETAINED'):
+            stage_trace.mark(stage, status=status, reason=stop, scope=trace_scope)
+        if assignment_enabled:stage_trace.mark('NATIVE_ASSIGNMENT',status=status,reason=stop,scope=trace_scope)
     if model is not None:
         model.dispose()
     return rows, diagnostics
@@ -538,6 +618,11 @@ def optimize_ortools(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fa
             if index % 32 == 31:
                 pack()
         pack()
+    assignment_options={}
+    if getattr(getattr(road,'deep_experiments',None),'complete_assignment_pricing',False):
+        from app.route_assignment_pricing import assignment_callback
+        assignment_options={'complete_assignment_pricing':True,
+                            'on_assignment':assignment_callback(search,scope_ids=data['tasks'])}
     stop = 'SEARCH_COMPLETED'
     try:
         search.control()
@@ -552,10 +637,14 @@ def optimize_ortools(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fa
                     strategy=strategy, first_strategy=first_strategy, region_surrogate=region_surrogate,
                     common_penalty_multiplier=factor, on_batch=batch,
                     candidate_retention=getattr(getattr(road, 'deep_experiments', None), 'native_candidate_retention', 'first'),
-                    candidate_stream_observer=getattr(road, 'native_candidate_stream_observer', None))
+                    candidate_stream_observer=getattr(road, 'native_candidate_stream_observer', None),
+                    **({'stage_trace': road.route_stage_trace} if getattr(road, 'route_stage_trace', None) is not None else {}),
+                    **assignment_options)
         stop = native_diagnostics['stop_reason']
     except StopSearch as exc:
         stop = exc.reason
+        if isinstance(getattr(exc,'native_diagnostics',None),dict):
+            native_diagnostics=exc.native_diagnostics
     except ModelUnavailable as exc:
         stop = str(exc)
     best = search.best

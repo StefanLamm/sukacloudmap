@@ -6,8 +6,12 @@ from dataclasses import dataclass, fields
 class DeepExperiments:
     diagnostics: bool = True
     candidate_retention: str = 'first'
+    complete_assignment_pricing: bool = False
+    fragment_merging: bool = False
+    stage_budget_reservation: bool = False
     native_candidate_retention: str = 'first'
     joint_reoptimization: bool = False
+    scalable_joint_search: bool = False
     quote_group_rotation: bool = False
     generation_selection_loop: bool = False
     gain_time_allocation: bool = False

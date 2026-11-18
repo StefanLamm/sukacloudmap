@@ -63,7 +63,7 @@ it.each([{kind:'MANUAL',refresh:true},{kind:'MANUAL',refresh:false}])('真实驾
  mock.api.mockImplementation(async(path:string,method='GET')=>path==='/planning/capabilities'?{road_source:'LIVE',route_mode:'DRIVING',live_calls_enabled:true,truck_key_configured:true,max_calls:null,qps:3}:original(path,method));
  render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
  await screen.findByRole('heading',{name:'方案 V1'});
- await screen.findByText('自动调用高德复核选中道路并重新报价；按每秒限流排队，等待时间另计，支持取消。');
+  await screen.findByText('自动调用高德复核选中道路并重新报价；按每秒限流排队，道路等待计入总等待上限，支持取消。');
  if(kind==='MANUAL'){
   fireEvent.click(screen.getByRole('button',{name:'人工调整'}));
   const select=screen.getByLabelText('道路核算方式') as HTMLSelectElement;
@@ -97,6 +97,6 @@ it.each(unsupported.flatMap(cap=>['OPTIMIZE','MANUAL'].map(kind=>({...cap,kind})
  }else fireEvent.click(screen.getByRole('button',{name:'开始规划'}));
  await waitFor(()=>expect(mock.api.mock.calls.some(c=>c[0]==='/planning/jobs'&&c[1]==='POST')).toBe(true));
  const payload=mock.api.mock.calls.find(c=>c[0]==='/planning/jobs'&&c[1]==='POST')![2];
- expect(payload.kind).toBe(kind);expect(payload).not.toHaveProperty('refresh_roads');
+ expect(payload.kind).toBe(kind);expect(payload).not.toHaveProperty('refresh_roads');expect(payload.call_limit).toBeNull();
  if(kind==='MANUAL')expect(payload.draft.routes).toEqual([{vehicle_id:'V',task_ids:['A','B']}]);
 });

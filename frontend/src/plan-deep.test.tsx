@@ -9,7 +9,7 @@ vi.mock('./api',()=>({api:mock.api}));
 vi.mock('./location-map',()=>({LocationMap:()=>null}));
 const day='2026-11-13';
 const demand={input_fingerprint:'F',latest_snapshot:{id:'S',version:1,input_changed:false}} as DayData;
-const cap={road_source:'LIVE',route_mode:'DRIVING',live_calls_enabled:true,truck_key_configured:true,max_calls:null,qps:3,automatic_workflow:'DEEP_PORTFOLIO',default_budget_seconds:300,automatic_road_verification:true};
+const cap={road_source:'LIVE',route_mode:'DRIVING',live_calls_enabled:true,truck_key_configured:true,max_calls:null,qps:3,automatic_workflow:'DEEP_PORTFOLIO',default_budget_seconds:300,automatic_road_verification:true,wall_wait_policy:{extra_compute_multiplier:2,extra_min_seconds:120,extra_max_seconds:1800,includes_queue:true,includes_road_wait:true}};
 const result={routes:[],common:[{task_id:'A',pieces:10,fee:'70.00',reason:'共配'}],unassigned:[],total_fee:'70.00',fees_complete:true,confirmable:false,road_source:'COMMON_ONLY',check:{valid:true,task_count:1,total_pieces:10,used_vehicles:0,dedicated_fee:'0.00',common_fee:'70.00',issues:[]},algorithm:{mode:'DAILY_DEEP_PORTFOLIO',stop_reason:'DEEP_COMPLETED',optimality_proven:false,final_validation:{mode:'COMMON_ONLY_VALIDATED',fresh:false,selected_segments:0}}};
 const plan={id:'P',snapshot_id:'S',snapshot_version:1,version:1,status:'DRAFT',input_changed:false,input_fingerprint:'F',created_at:day+'T08:00:00+08:00',created_by:'测试',total_fee:'70.00',valid:true,road_source:'COMMON_ONLY',input:{delivery_date:day,warehouses:[],vehicles:[],tasks:[{id:'A',code:'A',name:'甲店',pieces:10,warehouse_id:'W',common_unit_price:'7'}]},result};
 beforeEach(()=>{
@@ -27,6 +27,11 @@ it('新分组默认300秒自动深度规划，不再提供跳过自动道路复�
  render(<PlanPanel day={day} groupId="G" demand={demand} notify={()=>{}}/>);
  await screen.findByText(/自动调用高德复核选中道路并重新报价/);
  expect((screen.getByLabelText('优化时限') as HTMLInputElement).value).toBe('300');
+ expect(screen.getByText(/优化计算上限 300 秒；总等待上限 900 秒（含排队、道路及复核）/)).toBeTruthy();
+ const control=screen.getByLabelText('优化时限');expect(control.getAttribute('aria-describedby')).toBeTruthy();
+ fireEvent.change(control,{target:{value:'2000'}});
+ expect(screen.getByText(/优化计算上限 2000 秒；总等待上限 3800 秒/)).toBeTruthy();
+ fireEvent.change(control,{target:{value:'300'}});
  expect(screen.queryByLabelText('规划道路参考方式')).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'开始规划'}));
  await waitFor(()=>expect(mock.api.mock.calls.some(c=>c[0]==='/planning/jobs'&&c[1]==='POST')).toBe(true));
@@ -37,7 +42,7 @@ it('新分组默认300秒自动深度规划，不再提供跳过自动道路复�
 
 it('显示服务端实际阶段、轮次、起点和参考费用，并允许取消',async()=>{
  const initial=mock.api.getMockImplementation()!;let cancelled=false;
- const running=()=>({id:'J',kind:'OPTIMIZE',status:'RUNNING',budget_seconds:900,cancel_requested:cancelled,plan_id:null,error_message:null,
+ const running=()=>({id:'J',kind:'OPTIMIZE',status:'RUNNING',budget_seconds:900,wall_budget_seconds:777,cancel_requested:cancelled,plan_id:null,error_message:null,
   progress:{stage:'MULTI_START',message:'正在比较不同专车与共配组合',round_index:2,round_total:6,seed:17,best_fee:'62.50',elapsed_seconds:125.9,candidate_count:217}});
  mock.api.mockImplementation(async(path:string,method='GET',body?:unknown)=>{
   if(path.startsWith('/planning/days/')&&path.includes('/jobs'))return {items:[running()]};
@@ -51,6 +56,8 @@ it('显示服务端实际阶段、轮次、起点和参考费用，并允许取�
  expect(screen.getByText('第 2 / 6 轮 · 搜索起点 17 · 已用 2分5秒 · 已比较 217 条候选线路')).toBeTruthy();
  expect(screen.getByText('当前参考最低费用 ¥62.50')).toBeTruthy();
  expect(screen.getByText('道路复核后确认最终报价')).toBeTruthy();
+ expect(screen.getByText(/优化计算上限 900 秒；总等待上限 777 秒（含排队、道路及复核）/)).toBeTruthy();
+ expect(screen.queryByText(/道路排队另计/)).toBeNull();
  expect(screen.getByText('多轮搜索').getAttribute('aria-current')).toBe('step');
  fireEvent.click(screen.getByRole('button',{name:'取消任务'}));
  expect(await screen.findByText('正在停止，检查可保留的已验证结果')).toBeTruthy();
@@ -85,7 +92,7 @@ it('人工核算任务保留原说明，不显示自动多轮进度',async()=>{
  render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
  expect(await screen.findByText('正在核算人工方案的里程、时序和费用')).toBeTruthy();
  expect(screen.queryByRole('list',{name:'深度规划阶段'})).toBeNull();
- expect(screen.getByText(/优化计算上限 45 秒，道路排队另计/)).toBeTruthy();
+ expect(screen.getByText(/优化计算上限 45 秒；总等待上限 165 秒（含排队、道路及复核）/)).toBeTruthy();
 });
 
 it('外部算路关闭时明确只使用已有参考，不宣传实时道路复核',async()=>{

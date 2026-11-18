@@ -368,6 +368,30 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
     work_deadline = deadline - min(2., budget * PROOF_RESERVE_FRACTION)
     column_deadline = started + budget * .6
     data = normalize(body)
+    stage_trace = getattr(road, 'route_stage_trace', None)
+    trace_scope = stage_trace.scope('PORTFOLIO') if stage_trace is not None else None
+    traced_stages = set()
+    def mark(stage):
+        if stage_trace is not None:
+            traced_stages.add(stage)
+            stage_trace.mark(stage, status='ENTERED', scope=trace_scope)
+
+    def trace_route(stage, row, *, status='SEEN', reason=None):
+        stage_trace.route(stage, row, status=status, reason=reason, fee=row.get('fee'), scope=trace_scope)
+
+    def materialize(proposals):
+        if stage_trace is None:
+            return [evaluate_route(data, row['vehicle_id'], list(row['task_ids']), road,
+                                   lambda: control(final=True)) for row in proposals]
+        mark('MATERIALIZED')
+        routes = []
+        for row in proposals:
+            actual = evaluate_route(data, row['vehicle_id'], list(row['task_ids']), road,
+                                    lambda: control(final=True))
+            trace_route('MATERIALIZED', actual, status='VALID' if not actual['errors'] and actual['fee'] is not None else 'REJECTED',
+                        reason='|'.join(sorted({error['code'] for error in actual['errors']})) or None)
+            routes.append(actual)
+        return routes
     priced = {i for i, task in data['tasks'].items() if task['common_unit_price'] is not None}
     common_cents = {i: _cents(common_fee(data['tasks'][i]['pieces'], data['tasks'][i]['common_unit_price']))
                     for i in priced}
@@ -410,8 +434,15 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
         if previous is None or (_cents(value['fee']), value['meters'], value['seconds'], tuple(value['task_ids'])) < (
                 _cents(previous['fee']), previous['meters'], previous['seconds'], tuple(previous['task_ids'])):
             columns[value['vehicle_id']][key] = value
+            if stage_trace is not None:
+                mark('COLUMN')
+                trace_route('COLUMN', value, status='RETAINED')
+                if previous is not None:
+                    trace_route('COLUMN', previous, status='REPLACED', reason='CHEAPER_SAME_CAR_COVERAGE_OR_TIEBREAK')
             if previous is None:
                 column_count += 1
+        elif stage_trace is not None:
+            trace_route('COLUMN', value, status='DOMINATED', reason='SAME_CAR_COVERAGE')
 
     def retain(result):
         nonlocal best
@@ -447,6 +478,11 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
         if _current_metrics_match(data, result, road):
             copied = assemble(data, deepcopy(result['routes']),
                               [r['task_id'] for r in result['common']], [])
+            if stage_trace is not None:
+                mark('POOL_ORDER');mark('POOL_PRICE')
+                for row in copied['routes']:
+                    trace_route('POOL_ORDER', row, status='PROTECTED_CURRENT_SOURCE')
+                    trace_route('POOL_PRICE', row, status='CURRENT_SOURCE_MATCHES_METRICS')
             retain(copied)
             diagnostics['current_complete_plans'] += 1
             matched_source = result
@@ -496,18 +532,28 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
             for row in raw_routes:
                 try:
                     control()
+                    if stage_trace is not None:
+                        mark('POOL_ORDER');mark('POOL_PRICE')
+                        trace_route('POOL_ORDER', row, status='COMPLETE_RECIPE')
                     current = evaluate_candidate(data, row['vehicle_id'], list(row['task_ids']), road, control)
                     # A road without a metric interface can still prove an actual
                     # materialized source, but cannot invent missing compact edges.
                     if current is None and materialized_source and not callable(getattr(road, 'known_segment', None)):
                         current = evaluate_route(data, row['vehicle_id'], list(row['task_ids']), road, control)
                     if current is None:
+                        if stage_trace is not None:
+                            trace_route('POOL_PRICE', row, status='MISSING_METRICS')
                         diagnostics['complete_recipes_missing_metrics'] += 1
                         complete = False
                         break
                     if current['errors'] or current['fee'] is None:
+                        if stage_trace is not None:
+                            trace_route('POOL_PRICE', current, status='REJECTED',
+                                reason='|'.join(sorted({error['code'] for error in current['errors']})))
                         complete = False
                         break
+                    if stage_trace is not None:
+                        trace_route('POOL_PRICE', current, status='VALID_COMPLETE_RECIPE')
                     compact_routes.append(_compact(current))
                     remember(current)
                 except StopSearch as exc:
@@ -530,8 +576,7 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
             if score >= _rank(best):
                 break
             try:
-                routes = [evaluate_route(data, row['vehicle_id'], list(row['task_ids']), road,
-                                         lambda: control(final=True)) for row in compact_routes]
+                routes = materialize(compact_routes)
                 complete = assemble(data, routes, common_ids, [])
                 if _legal(complete):
                     retain(complete)
@@ -542,6 +587,8 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                 diagnostics['candidate_pool_truncated'] = True
                 break
         control()
+        if stage_trace is not None:
+            mark('POOL_ORDER')
         for result in [*sources, *recipe_sources, {'candidate_routes': candidate_recipes}]:
             algorithm = result.get('algorithm')
             extra = algorithm.get('_portfolio_recipes') if isinstance(algorithm, dict) else None
@@ -556,9 +603,13 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                     diagnostics['invalid_recipes'] += 1
                     continue
                 if len(orders) >= MAX_ORDERS and ids not in orders:
+                    if stage_trace is not None:
+                        trace_route('POOL_ORDER', row, status='REJECTED', reason='MAX_ORDERS')
                     diagnostics['candidate_pool_truncated'] = True
                     break
                 orders.setdefault(ids, None)
+                if stage_trace is not None:
+                    trace_route('POOL_ORDER', row, status='ADMITTED')
         diagnostics['unique_orders'] = len(orders)
         report('REPRICE_COLUMNS')
         # Price warehouse/capacity-equivalent compact proposals once. The metric
@@ -567,6 +618,8 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
         # evidence and all physical-car constraints are rechecked after selection.
         # If interrupted, model classes reflect exactly the retained choice sets.
         pricing_finished = False
+        if stage_trace is not None:
+            mark('POOL_PRICE')
         for ids in orders:
             # Even an entirely ineligible order must honor cancellation and
             # yield the remaining allowance to model construction/solving.
@@ -578,6 +631,8 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
             eligible = sum(map(len, fleet))
             diagnostics['eligible_vehicle_options'] += eligible
             diagnostics['ineligible_vehicle_options'] += len(columns) - eligible
+            if not fleet and stage_trace is not None:
+                trace_route('POOL_PRICE', {'vehicle_id':'','task_ids':ids}, status='NO_ELIGIBLE_CAR')
             for group in fleet:
                 control()
                 if monotonic() >= column_deadline or column_count >= MAX_COLUMNS:
@@ -587,10 +642,17 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                 diagnostics['metric_evaluations'] += 1
                 row = evaluate_candidate(data, group[0], list(ids), road, control)
                 if row is None:
+                    if stage_trace is not None:
+                        trace_route('POOL_PRICE', {'vehicle_id':group[0],'task_ids':ids}, status='MISSING_METRICS')
                     diagnostics['unknown_metric_recipes'] += 1
                     continue
                 if row['errors'] or row['fee'] is None:
+                    if stage_trace is not None:
+                        trace_route('POOL_PRICE', row, status='REJECTED',
+                            reason='|'.join(sorted({error['code'] for error in row['errors']})))
                     continue
+                if stage_trace is not None:
+                    trace_route('POOL_PRICE', row, status='VALID_METRIC_REPRESENTATIVE')
                 # An all-optional route that costs at least its tickets'
                 # configured common delivery cannot improve any allocation:
                 # outsourcing that entire route keeps coverage and frees a
@@ -601,6 +663,8 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                         and _cents(row['fee']) >= sum(common_cents[i] for i in ids)):
                     diagnostics['common_dominated_metric_groups'] += 1
                     diagnostics['common_dominated_vehicle_options'] += len(group)
+                    if stage_trace is not None:
+                        trace_route('POOL_PRICE', row, status='COMMON_DOMINATED')
                     continue
                 for index, vehicle_id in enumerate(group):
                     control()
@@ -616,6 +680,13 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                 break
         control()
         classes = _vehicle_classes(data, columns, control)
+        if stage_trace is not None:
+            mark('MODEL_INCLUDED');mark('MODEL_SELECTED')
+            for group in classes:
+                for vehicle_id in group['members']:
+                    for row in group['patterns']:
+                        control()
+                        trace_route('MODEL_INCLUDED', {**row,'vehicle_id':vehicle_id}, status='IN_MODEL')
         diagnostics.update(column_count=column_count, class_count=len(classes),
                            physical_vehicle_count=len(columns))
         report('JOINT_COLUMN_SELECTION')
@@ -628,11 +699,13 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
             diagnostics.update(fallback=True, fallback_reason='SOLVER_UNAVAILABLE' if isinstance(exc, ImportError) else 'SOLVER_ERROR')
         if selection is not None:
             selected, common_ids = selection
+            if stage_trace is not None:
+                for row in selected:
+                    trace_route('MODEL_SELECTED', row, status='SELECTED')
             compact_fee = sum(_cents(row['fee']) for row in selected) + sum(
                 _cents(common_fee(data['tasks'][i]['pieces'], data['tasks'][i]['common_unit_price'])) for i in common_ids)
             try:
-                routes = [evaluate_route(data, row['vehicle_id'], list(row['task_ids']), road,
-                                         lambda: control(final=True)) for row in selected]
+                routes = materialize(selected)
                 materialized = assemble(data, routes, common_ids, [])
                 if not _legal(materialized) or _cents(materialized['total_fee']) != compact_fee:
                     diagnostics.update(fallback=True, fallback_reason='MATERIALIZATION_MISMATCH',
@@ -687,4 +760,11 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                        complete_plan_verified=_legal(best), optimality_proven=False, global_optimality_proven=False,
                        total_fee=best['total_fee'], objective_order=['unassigned', 'total_fee_cents', 'meters', 'vehicles'])
     best['algorithm'] = diagnostics
+    if stage_trace is not None:
+        for stage in ('POOL_ORDER','POOL_PRICE','COLUMN','MODEL_INCLUDED','MODEL_SELECTED','MATERIALIZED'):
+            stage_trace.mark(stage, status=('COMPLETE' if stop_reason=='SEARCH_COMPLETED' and not diagnostics['candidate_pool_truncated']
+                else 'INTERRUPTED') if stage in traced_stages else 'SKIPPED', reason=stop_reason, scope=trace_scope)
+        stage_trace.mark('PORTFOLIO_FINAL', status='COMPLETE' if _legal(best) else 'INTERRUPTED', scope=trace_scope)
+        for row in best['routes']:
+            trace_route('PORTFOLIO_FINAL', row, status='SELECTED_COMPLETE' if _legal(best) else 'PARTIAL')
     return best

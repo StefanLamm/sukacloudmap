@@ -48,12 +48,19 @@ def _native(search,seconds,strategy,first,seed,penalty_multiplier=1):
             value=search.evaluate(spec['vehicle_id'],spec['task_ids'])
             if value is not None:search.quick_exchange(value)
         if len(search.pool)!=before:search.pack()
+    assignment_options={}
+    if getattr(getattr(search.road,'deep_experiments',None),'complete_assignment_pricing',False):
+        from app.route_assignment_pricing import assignment_callback
+        assignment_options={'complete_assignment_pricing':True,
+            'on_assignment':assignment_callback(search,scope_ids=search.data['tasks'])}
     specs,diagnostics=generate_ortools_candidates(search.data,
         lambda vehicle,a,b:lookup(a,b),max(0,seconds),seed,search.cancelled,
         initial_routes=search.best_routes,vehicle_independent=True,strategy=strategy,
         first_strategy=first,common_penalty_multiplier=penalty_multiplier,on_batch=batch,
         candidate_retention=getattr(getattr(search.road,'deep_experiments',None),'native_candidate_retention','first'),
-        candidate_stream_observer=getattr(search.road,'native_candidate_stream_observer',None))
+        candidate_stream_observer=getattr(search.road,'native_candidate_stream_observer',None),
+        **({'stage_trace':search.road.route_stage_trace} if getattr(search.road,'route_stage_trace',None) is not None else {}),
+        **assignment_options)
     # Include any final trace not emitted because its native slice timed out.
     if search.remaining()>.05:batch(specs)
     return diagnostics
@@ -83,7 +90,7 @@ def _optimize(body,road,budget_seconds=15,seed=0,cancelled=lambda:False,*,legacy
     if len(data['tasks'])<=8 and len(data['vehicles'])<=8 and legacy is not None:
         return optimize_joint(body,road,budget_seconds,seed,cancelled,legacy=legacy,initial_result=initial_result)
     search=JointSearch(data,road,budget_seconds,seed,cancelled,initial_result)
-    phases=[];stop='SEARCH_COMPLETED';cycle=0
+    phases=[];stop='SEARCH_COMPLETED';cycle=0;interrupted_native=[]
     try:
         search.setup_fleet()
         eligible=any(t['signature'] and any(v['warehouse_id']==t['warehouse_id'] and v['max_pieces']>=t['pieces'] for v in search.cars) for t in search.tasks.values())
@@ -117,7 +124,10 @@ def _optimize(body,road,budget_seconds=15,seed=0,cancelled=lambda:False,*,legacy
                     phases.append(_phase(search,variant.lower(),duration,
                         lambda:_native(search,duration,variant,first,seed+cycle*31337,multiplier)))
                 if len(phases)>64:phases=phases[:3]+phases[-61:]
-    except StopSearch as exc:stop=exc.reason
+    except StopSearch as exc:
+        stop=exc.reason
+        if isinstance(getattr(exc,'native_diagnostics',None),dict):
+            interrupted_native.append(exc.native_diagnostics)
     result=search.best
     result['algorithm']={'mode':'HYBRID_COST_PORTFOLIO' if native else 'ADAPTIVE_LARGE_NEIGHBORHOOD',
         'seed':seed,'stop_reason':stop,'candidate_count':search.evaluations,'distinct_route_count':len(search.pool),
@@ -134,6 +144,8 @@ def _optimize(body,road,budget_seconds=15,seed=0,cancelled=lambda:False,*,legacy
         'initial_reference_revalidation_required':search.initial_revalidation_required,
         'candidate_metric_costs_are_proposals':True,'final_plan_independently_checked':True,
         'fleet_utilization':_fleet_utilization(search)}
+    if interrupted_native:
+        result['algorithm']['interrupted_native_diagnostics']=interrupted_native
     return result
 
 

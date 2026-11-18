@@ -16,8 +16,8 @@ from test_plan_api import frozen, new_job, plan, waited
 def install_workflow(monkeypatch, *, block=False, invalid=False):
     import app.plan_service as service
     entered=threading.Event();release=threading.Event();seen=[]
-    def workflow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None):
-        seen.append({'body':deepcopy(body),'incumbent':deepcopy(initial_result),'budget':budget})
+    def workflow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None,wall_budget_seconds=None):
+        seen.append({'body':deepcopy(body),'incumbent':deepcopy(initial_result),'budget':budget,'wall_budget_seconds':wall_budget_seconds})
         if progress:
             progress({'stage':'MULTI_START','message':'多轮搜索','round_index':1,'round_total':4,
                       'seed':seed,'best_fee':'15.75','elapsed_seconds':.1,'private_solver':object()})
@@ -43,6 +43,7 @@ def test_new_jobs_default_to_deep_workflow_and_five_minute_budget(basis,monkeypa
     assert caps['default_budget_seconds']==300
     job=waited(c,new_job(c,frozen(basis)))
     assert job['status']=='COMPLETED' and seen[0]['budget']==300
+    assert 0 < seen[0]['wall_budget_seconds'] <= 900
     assert job['summary']['algorithm']['mode']=='DAILY_DEEP_PORTFOLIO'
     assert job['progress']['stage']=='COMPLETE'
 
@@ -122,3 +123,28 @@ def test_new_group_does_not_inherit_another_groups_saved_incumbent(basis,monkeyp
     saved=plan(c,ja['plan_id'])
     again=waited(c,new_job(c,first['snapshot_id'],saved['version'],group_id=a['id']))
     assert again['status']=='COMPLETED' and seen[2]['incumbent']==saved['result']
+
+
+def test_wall_cutoff_retains_verified_complete_result_without_publishing(basis,monkeypatch,app):
+    import app.plan_service as service
+    from types import SimpleNamespace
+    install_workflow(monkeypatch)
+    real_clock=time.monotonic
+    clock=SimpleNamespace(offset=0.)
+    monkeypatch.setattr(service,'time',SimpleNamespace(monotonic=lambda:real_clock()+clock.offset))
+    verify=service.verify_deep_result
+    def checked_then_expired(*args,**kwargs):
+        verify(*args,**kwargs)
+        clock.offset=10000.
+    monkeypatch.setattr(service,'verify_deep_result',checked_then_expired)
+    client,*_=basis
+    job=waited(client,new_job(client,frozen(basis),budget_seconds=2,wall_budget_seconds=20))
+    assert job['status']=='FAILED' and job['plan_id'] is None
+    with app.state.sessions() as db:
+        stored=db.get(PlanningJob,job['id'])
+        assert stored.error_code=='WALL_BUDGET'
+        result=json.loads(stored.result)
+        assert not result['unassigned'] and result['fees_complete']
+        assert result['algorithm']['publication']=='NOT_PUBLISHED_WALL_DEADLINE'
+        assert result['algorithm']['source_provenance']['app_source_hash']
+        assert db.scalar(select(__import__('sqlalchemy').func.count()).select_from(PlanVersion))==0

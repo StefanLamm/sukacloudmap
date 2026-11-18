@@ -211,7 +211,10 @@ def test_old_test_config_migration_keeps_independent_settings_and_existing_data(
     updated = helper.file_settings(config)
     assert updated.amap_reference_graph_test_enabled is True
     assert updated.amap_web_service_key.get_secret_value() == 'TEST_ONLY_INDEPENDENT_WEB_KEY'
-    assert updated.driving_job_max_calls == 17 and updated.driving_live_calls_enabled
+    assert updated.driving_job_max_calls is None and updated.driving_live_calls_enabled
+    assert updated.truck_job_max_calls is None
+    assert 'SUKA_DRIVING_JOB_MAX_CALLS="unlimited"' in config.read_text()
+    assert 'SUKA_TRUCK_JOB_MAX_CALLS="unlimited"' in config.read_text()
     assert updated.planning_optimizer_profile == 'ALNS'
     assert updated.planning_common_penalty_multiplier == 1.5
     assert logical_dump(target / 'data/application.db') == before_test
@@ -229,7 +232,9 @@ def test_existing_config_without_database_still_initializes_from_stable(tmp_path
     helper.prepare()
     updated = helper.file_settings(target / '.env')
     assert updated.amap_reference_graph_test_enabled is True
-    assert updated.planning_optimizer_profile == 'ALNS' and updated.driving_job_max_calls == 19
+    assert updated.planning_optimizer_profile == 'ALNS' and updated.driving_job_max_calls is None
+    assert 'SUKA_DRIVING_JOB_MAX_CALLS="unlimited"' in (target / '.env').read_text()
+    assert 'SUKA_TRUCK_JOB_MAX_CALLS="unlimited"' in (target / '.env').read_text()
     with sqlite3.connect(target / 'data/application.db') as db:
         assert db.execute('SELECT id FROM stores').fetchall() == [('S1',)]
         assert db.execute('SELECT COUNT(*) FROM login_sessions').fetchone()[0] == 0

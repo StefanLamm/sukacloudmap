@@ -42,7 +42,7 @@ def seed_long_routes(search, scope='common', max_groups=1, max_seeds=36,
     if any(isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= upper for value, upper in limits):
         raise ValueError('Invalid bounded long-route limits')
     road = search.road
-    capped = isinstance(road, DrivingRoad)
+    capped = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     previous_limit = getattr(road, 'call_limit', None)
     if capped:
         road.call_limit = road.calls if previous_limit is None else min(road.calls, previous_limit)

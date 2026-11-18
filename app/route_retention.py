@@ -190,7 +190,15 @@ def replay_frozen_stream(events, *, policies=('first', 'batch_dedup', 'diversity
     stream_count, seen, stream_duplicates = 0, set(), 0
     allocation_keys, complete_recipes = set(), []
     for event in events:
-        if event.get('kind') == 'flush':
+        kind = event.get('kind', 'candidate')
+        if kind in {'checkpoint','native_assignment'}:
+            # Raw native assignments have not passed actual pricing/proof;
+            # they are separate diagnostic markers, never protected plans.
+            continue
+        if kind == 'priced_candidate':
+            # Actual pricing observations are diagnostic markers, not a second identity stream.
+            continue
+        if kind == 'flush':
             for pool in pools.values():
                 pool.flush()
             continue

@@ -77,6 +77,9 @@ def test_fresh_fixed_routes_have_new_actual_sources_full_proof_and_exact_fee_bri
     assert report['actual_external_calls']==len(requests)==3
     assert report['external_calls']==report['offline_proof_external_calls']==0
     assert report['network_stats']['historical_segment_hits']==0
+    assert report['network_stats']['call_limit'] is None
+    assert report['network_stats']['total_call_policy']=='PRODUCTION_UNLIMITED'
+    assert report['network_stats']['wall_deadline'] is not None
     assert report['selected_provider_keys']==report['freshened_provider_keys']
     assert len(report['selected_provider_sources'])==3
     assert report['proof']['audit']['valid'] and report['proof']['audit']['unassigned_tasks']==0

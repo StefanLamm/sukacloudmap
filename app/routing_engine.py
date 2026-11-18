@@ -141,6 +141,10 @@ def problem(code, message, **refs):
 
 
 def evaluate_route(data, vehicle_id, ids, road, control=None):
+    trace=getattr(road,'route_stage_trace',None)
+    if trace is not None:
+        trace.route('CENTRAL_ROAD_REQUEST',{'vehicle_id':vehicle_id,'task_ids':ids},
+                    scope='JOB_EVALUATOR_REQUESTS')
     tasks, vehicles = data['tasks'], data['vehicles']
     errors, stops, segments = [], [], []
     route = {'vehicle_id': vehicle_id, 'task_ids': ids, 'stops': stops, 'segments': segments, 'errors': errors,
@@ -352,6 +356,9 @@ def optimize_manual(body, draft, road, control=None):
     relocation/reversal search and report that global optimality is unproven.
     The submitted order is always the incumbent, including on budget expiry.
     """
+    from app.search_policy import production_search_control
+    control = production_search_control(road, control)
+    count_limited = not getattr(road, 'production_planning', False)
     data = normalize(body)
     original = recalculate(body, draft, road, control)
     routes = list(original['routes']); candidates = 0; failures = 0
@@ -371,7 +378,7 @@ def optimize_manual(body, draft, road, control=None):
             def consider(order):
                 nonlocal candidates, best, failures
                 if control: control()
-                if candidates >= 10000: raise StopSearch('CANDIDATE_BUDGET')
+                if count_limited and candidates >= 10000: raise StopSearch('CANDIDATE_BUDGET')
                 if order == best['task_ids']: return False
                 candidates += 1
                 trial = evaluate_route(data, baseline['vehicle_id'], list(order), road, control)
@@ -409,6 +416,9 @@ def optimize_manual(body, draft, road, control=None):
 
 
 def optimize_legacy(body, road, budget_seconds=15, seed=0, cancelled=lambda: False):
+    from app.search_policy import production_search_control
+    production_control = production_search_control(road, cancelled=cancelled)
+    count_limited = not getattr(road, 'production_planning', False)
     data = normalize(body); tasks = data['tasks']; start = time.monotonic(); evaluations = 0; failures = 0
     common_ids = {i for i, t in tasks.items() if t['common_unit_price'] is not None}
     unassigned = set(tasks) - common_ids; reasons = {}; candidates = []
@@ -420,9 +430,10 @@ def optimize_legacy(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fal
     # Reserve a small part of the wall budget for the final independent proof.
     search_seconds = max(0, budget_seconds-min(.25,budget_seconds*.05))
     def control():
+        if production_control is not None: production_control()
         if cancelled(): raise StopSearch('CANCELLED')
         if time.monotonic() - start >= search_seconds: raise StopSearch('TIME_BUDGET')
-        if evaluations >= max_evaluations: raise StopSearch('CANDIDATE_BUDGET')
+        if count_limited and evaluations >= max_evaluations: raise StopSearch('CANDIDATE_BUDGET')
     def evaluate(v, ids):
         nonlocal evaluations, failures
         control(); evaluations += 1

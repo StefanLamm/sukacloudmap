@@ -4,6 +4,7 @@ The workspace owns service records; each runtime owns its code, assets, local
 configuration and data. Only the AMap rate limiter is deliberately shared.
 """
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -64,13 +65,51 @@ def clean_environment():
             if not name.upper().startswith(('SUKA_', 'TUNNEL_'))}
 
 
+def qa_runtime_records(workspace):
+    """Optional third-runtime records never replace stable/test service roots."""
+    workspace = Path(workspace).resolve()
+    roots = runtime_roots(workspace)
+    if roots is None:
+        raise RuntimeError('QA 验收必须先有稳定/测试隔离登记。')
+    try:
+        payload = json.loads((workspace / 'data/runtime-isolation.json').read_text())
+        records = payload.get('qa_runtimes', {})
+        if not isinstance(records, dict):
+            raise ValueError
+        found = {}
+        for name, record in records.items():
+            if not isinstance(name, str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', name):
+                raise ValueError
+            if not isinstance(record, dict):
+                raise ValueError
+            raw = Path(record['root'])
+            root = raw.resolve()
+            if (not raw.is_absolute() or raw != root or root.parent != workspace / 'data/runtimes'
+                    or not root.is_dir() or root in roots.values() or root in found
+                    or record.get('public_origin') != 'http://127.0.0.1:8003'
+                    or record.get('cookie_namespace') != 'test_delivery_qa'
+                    or not re.fullmatch(r'[0-9a-f]{64}', record.get('source_manifest_sha256', ''))):
+                raise ValueError
+            manifest = root / 'source-build-manifest.json'
+            if (not manifest.is_file() or manifest.is_symlink() or manifest.stat().st_nlink != 1
+                    or hashlib.sha256(manifest.read_bytes()).hexdigest() != record['source_manifest_sha256']):
+                raise ValueError
+            found[root] = record
+        return found
+    except (OSError, ValueError, KeyError, TypeError):
+        raise RuntimeError('QA 验收登记无效，未回退到稳定版或测试版业务库。') from None
+
+
 def validate_test_runtime(root, settings):
     root = Path(root).resolve()
     if root.parent.name != 'runtimes' or root.parent.parent.name != 'data':
         raise RuntimeError('测试服务必须从独立运行目录启动。')
     workspace = root.parents[2]
     roots = runtime_roots(workspace)
-    if roots is None or roots.get('test_root') != root:
+    qa = False
+    if roots is not None and roots.get('test_root') != root:
+        qa = root in qa_runtime_records(workspace)
+    if roots is None or (roots.get('test_root') != root and not qa):
         raise RuntimeError('当前目录不是已登记的独立测试版本。')
     config = root / '.env'
     if not config.is_file() or config.is_symlink():
@@ -91,9 +130,14 @@ def validate_test_runtime(root, settings):
             raise RuntimeError('测试数据库和道路缓存必须位于测试版专属目录，且不能共享文件。')
     if paths[0] == paths[1] or not paths[0].is_file():
         raise RuntimeError('测试数据库副本不存在或与道路缓存路径重复。')
-    if settings.cookie_namespace not in {'test_local', 'test_external'}:
+    if not qa and settings.cookie_namespace not in {'test_local', 'test_external'}:
         raise RuntimeError('测试版必须使用独立登录 Cookie。')
-    if settings.cookie_namespace == 'test_local':
+    if qa:
+        if (settings.cookie_namespace != 'test_delivery_qa' or settings.environment != 'test'
+                or settings.secure_cookie or settings.public_origin != 'http://127.0.0.1:8003'
+                or set(settings.allowed_hosts) != {'127.0.0.1', 'localhost'}):
+            raise RuntimeError('QA 验收版必须使用已登记的本机 8003 入口和 test 环境。')
+    elif settings.cookie_namespace == 'test_local':
         if (settings.environment != 'test' or settings.secure_cookie
                 or settings.public_origin != 'http://127.0.0.1:8002'
                 or set(settings.allowed_hosts) != {'127.0.0.1', 'localhost'}):

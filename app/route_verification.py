@@ -136,7 +136,7 @@ class DrivingCollector:
         self.frozen = CollectedDrivingRoad(self.receipts, self.started_at)
         self.calls_before = road.stats().get('calls', 0)
         self.failures_before = road.stats().get('failures', 0)
-        self.max_bridge_edges = max_bridge_edges
+        self.max_bridge_edges = None if getattr(road, 'production_planning', False) else max_bridge_edges
         self.bridge_edges = 0
         self.bridge_budget_exhausted = 0
         self.initial_pass = True
@@ -163,7 +163,7 @@ class DrivingCollector:
                 raise RoadError(code, message)
             if not self.initial_pass:
                 self.optional_control()
-                if self.bridge_edges >= self.max_bridge_edges:
+                if self.max_bridge_edges is not None and self.bridge_edges >= self.max_bridge_edges:
                     self.bridge_budget_exhausted += 1
                     raise RoadError('DEEP_BRIDGE_BUDGET', '本轮新增连接路段复核已达到时限内的搜索上限')
                 self.bridge_edges += 1
@@ -202,7 +202,7 @@ class _SmallRouteRoad:
     def __init__(self, collector, allowance):
         self.collector = collector
         self.started = collector.bridge_edges
-        self.allowance = max(0, allowance)
+        self.allowance = float('inf') if allowance is None else max(0, allowance)
 
     def segment(self, vehicle, origin, destination, departure):
         if (self.collector.frozen.known_segment(origin, destination) is None and
@@ -307,7 +307,7 @@ def _best_small_route(data, vehicle_id, ids, collector, repair_control, bridge_a
             raise StopSearch('CANCELLED')
         diagnostics['stop_reason'] = exc.reason
     diagnostics['new_bridge_edges'] = collector.bridge_edges - bounded.started
-    diagnostics['bridge_allowance'] = bounded.allowance
+    diagnostics['bridge_allowance'] = None if bounded.allowance == float('inf') else bounded.allowance
     return best, diagnostics
 
 
@@ -420,10 +420,11 @@ def _repair_proposals(data, routes, common, collector, progress, repair_control)
             # A complete baseline takes priority over optional exhaustive cost
             # search. If cheap repairs fail, stop at the first fresh feasible
             # order, leaving remaining bad lines their compute/bridge allowance.
-            remaining_bridges = max(0, collector.max_bridge_edges - collector.bridge_edges)
+            remaining_bridges = (None if collector.max_bridge_edges is None else
+                                 max(0, collector.max_bridge_edges - collector.bridge_edges))
             fresh_reorder, reorder_search = _best_small_route(
                 data, vid, ids, collector, repair_control,
-                min(32, remaining_bridges // max(1, remaining_bad)), first_feasible=True)
+                None if remaining_bridges is None else min(32, remaining_bridges // max(1, remaining_bad)), first_feasible=True)
             if fresh_reorder is not None:
                 accepted.append((Decimal(fresh_reorder['fee']), 'complete_small_reorder', [fresh_reorder], ()))
                 repair_recipes.append({'vehicle_id': vid, 'task_ids': list(fresh_reorder['task_ids'])})
@@ -464,7 +465,7 @@ def _refine_repaired_groups(data, current, originals, repair_log, collector, rep
                 any(r['vehicle_id'] == original['vehicle_id'] and r not in affected for r in current['routes'])):
             continue
         route, details = _best_small_route(data, original['vehicle_id'], ids, collector, repair_control,
-            min(32, max(0, collector.max_bridge_edges - collector.bridge_edges)))
+            None if collector.max_bridge_edges is None else min(32, max(0, collector.max_bridge_edges - collector.bridge_edges)))
         record['small_reorder'] = details
         if route is None:
             continue
@@ -525,7 +526,7 @@ def _consolidate_small_routes(data, current, collector, repair_control, progress
         searches += 1
         before = current['total_fee']
         route, details = _best_small_route(data, car['id'], ids, collector, repair_control,
-            min(32, max(0, collector.max_bridge_edges - collector.bridge_edges)))
+            None if collector.max_bridge_edges is None else min(32, max(0, collector.max_bridge_edges - collector.bridge_edges)))
         improved = False
         if route is not None:
             recipes.append({'vehicle_id': car['id'], 'task_ids': list(route['task_ids'])})

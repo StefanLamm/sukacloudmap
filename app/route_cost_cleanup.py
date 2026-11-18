@@ -85,7 +85,7 @@ def improve_cost_cleanup(search, *, max_rounds=2, max_candidates=512,
         return finish('NO_CLEANUP_ALLOWANCE')
 
     road = search.road
-    capped = isinstance(road, DrivingRoad)
+    capped = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     original_limit = getattr(road, 'call_limit', None)
     calls_before = road.calls if capped else 0
     if capped:
@@ -316,7 +316,7 @@ def polish_route_orders(search, vehicle_ids, *, max_passes=2, max_candidates=120
     fixed = {vehicle_id: line_key(row) for vehicle_id, row in originals.items() if vehicle_id not in targets}
     seen = {vehicle_id: {tuple(originals[vehicle_id]['task_ids'])} for vehicle_id in targets}
     road = search.road
-    capped = isinstance(road, DrivingRoad)
+    capped = isinstance(road, DrivingRoad) and not getattr(road, 'production_planning', False)
     original_limit = getattr(road, 'call_limit', None)
     calls_before = road.calls if capped else 0
     if capped:

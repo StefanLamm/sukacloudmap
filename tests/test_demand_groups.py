@@ -154,10 +154,10 @@ def test_delete_group_cascades_derived_data_keeps_other_group_and_master(basis,a
 def test_delete_running_group_cancels_worker_without_reviving_results(basis,app,monkeypatch):
     import app.plan_service as service
     original=service.optimize_deep;entered=threading.Event();exited=threading.Event()
-    def slow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None):
+    def slow(body,road,budget,seed,cancelled,*,initial_result=None,progress=None,wall_budget_seconds=None):
         entered.set();end=time.monotonic()+3
         while time.monotonic()<end and not cancelled():time.sleep(.02)
-        try:return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress)
+        try:return original(body,road,budget,seed,cancelled,initial_result=initial_result,progress=progress,wall_budget_seconds=wall_budget_seconds)
         finally:exited.set()
     monkeypatch.setattr(service,'optimize_deep',slow)
     c,w,q,s,s2,v=basis;g=create_group(c);receipt=manual(c,g,[{'store_id':s['id'],'pieces':3}])

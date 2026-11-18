@@ -27,7 +27,8 @@ from scripts.benchmark_algorithms import FrozenEvidenceRoad, independent_audit, 
 
 
 def compare(stream_path, body_path, graph_path, *, output, protected_path=None,
-            incumbent_result=None, limit=10000, batch_size=512, seconds=10, explicit_boundaries=False):
+            incumbent_result=None, limit=10000, batch_size=512, seconds=10, explicit_boundaries=False,
+            policies=('first', 'batch_dedup', 'diversity')):
     raw = Path(stream_path).read_bytes()
     decoded = gzip.decompress(raw) if raw[:2] == b'\x1f\x8b' else raw
     if '.jsonl' in Path(stream_path).suffixes:
@@ -55,7 +56,7 @@ def compare(stream_path, body_path, graph_path, *, output, protected_path=None,
         protected.append(loaded.get('result', loaded) if isinstance(loaded, dict) else loaded)
     if any(not complete(data, row) for row in protected[1:]):
         raise ValueError('Supplied protected plans must pass the independent complete-plan check')
-    replay = replay_frozen_stream(events, data=data, limit=limit, batch_size=batch_size,
+    replay = replay_frozen_stream(events, data=data, limit=limit, batch_size=batch_size, policies=policies,
                                   explicit_boundaries=explicit_boundaries)
     report = {'scope': 'FROZEN_STREAM_RETENTION_ONLY', 'cold_start_performance_claimed': False,
               'hash_environment': {'PYTHONHASHSEED': os.environ.get('PYTHONHASHSEED'),
@@ -102,12 +103,14 @@ def main():
     parser.add_argument('--batch-size', type=int, default=512)
     parser.add_argument('--selection-seconds', type=float, default=10)
     parser.add_argument('--explicit-boundaries', action='store_true')
+    parser.add_argument('--policies',nargs='+',choices=['first','batch_dedup','diversity'],
+                        default=['first','batch_dedup','diversity'])
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     report = compare(args.stream, args.input, args.graph, output=args.output,
                      protected_path=args.protected_plans, incumbent_result=args.incumbent_result,
                      limit=args.limit, batch_size=args.batch_size,
-                     seconds=args.selection_seconds, explicit_boundaries=args.explicit_boundaries)
+                     seconds=args.selection_seconds, explicit_boundaries=args.explicit_boundaries, policies=args.policies)
     print(json.dumps({name: {'fee': row['fee'], 'audit': row['audit']} for name, row in report['policies'].items()}, ensure_ascii=False))
 
 

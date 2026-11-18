@@ -82,7 +82,7 @@ def test_invalid_wall_deadline_is_rejected(value):
         _Budget(SimpleNamespace(), 1, lambda: False, wall_seconds=value)
 
 
-def test_large_production_profile_preserves_existing_progress_stages_and_can_be_disabled(monkeypatch):
+def test_explicit_refinement_profile_preserves_progress_stages_and_can_be_disabled(monkeypatch):
     from test_route_deep import initial, stub_rounds
     body, road = problem(n=9, cars=3)
     data = normalize(body)
@@ -95,15 +95,19 @@ def test_large_production_profile_preserves_existing_progress_stages_and_can_be_
     monkeypatch.setattr('app.route_deep._pre_selection_macros',
         lambda data, road, incumbent, *args: (*unchanged(data, road, value), []))
     monkeypatch.setattr('app.route_deep._post_selection_small_groups', unchanged)
+    monkeypatch.setattr('app.route_columns.select_portfolio', lambda *args, **kwargs: deepcopy(value))
     methods = []
     def refinement(data, road, incumbent, budget, seed, cancelled, method, **kwargs):
         methods.append(method)
         return incumbent, {'elapsed_seconds': 0., 'candidate_count': 0}
     monkeypatch.setattr('app.route_deep._optional_refinement', refinement)
     progress = []
-    result = optimize_deep(body, road, 600, initial_result=value, progress=progress.append)
+    result = optimize_deep(body, road, 600, initial_result=value, progress=progress.append,
+        experiments={'joint_reoptimization': True, 'generation_selection_loop': True})
     assert result['check']['valid'] and result['total_fee'] == value['total_fee']
-    assert methods == ['cycles']
+    assert methods == ['joint', 'cycles']
+    joint = [row for row in progress if row.get('optimization_phase') == 'JOINT_REOPTIMIZATION']
+    assert joint and all(row['stage'] == 'COLUMN_SELECTION' for row in joint)
     expansion = [row for row in progress if row.get('optimization_phase') == 'CANDIDATE_EXPANSION']
     assert expansion and all(row['stage'] == 'COLUMN_SELECTION' for row in expansion)
     assert progress[-1]['stage'] == 'COMPLETE' and 'optimization_phase' not in progress[-1]

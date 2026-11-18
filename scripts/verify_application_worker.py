@@ -52,7 +52,7 @@ def private_settings(database,graph,folder,profile,multiplier,port):
         public_origin=f'http://127.0.0.1:{port}',allowed_hosts=['127.0.0.1'],secure_cookie=False,
         cookie_namespace='worker_'+uuid.uuid4().hex[:16],planning_road_source='LIVE',planning_route_mode='DRIVING',
         planning_optimizer_profile=profile,planning_common_penalty_multiplier=multiplier,
-        truck_live_calls_enabled=False,driving_live_calls_enabled=False,truck_job_max_calls=0,driving_job_max_calls=0,
+        truck_live_calls_enabled=False,driving_live_calls_enabled=False,truck_job_max_calls=None,driving_job_max_calls=None,
         amap_web_service_key=PRIVATE_KEY_PLACEHOLDER,amap_js_key=None,amap_security_js_code=None,
         amap_rate_limit_path=folder/'private-rate-limit.db',amap_reference_graph_path=graph,
         map_auto_geocode_enabled=False,map_provider='OPEN')
@@ -76,9 +76,9 @@ def server_payload(settings):
     require(settings.amap_web_service_key is not None
         and settings.amap_web_service_key.get_secret_value()==PRIVATE_KEY_PLACEHOLDER
         and not settings.truck_live_calls_enabled and not settings.driving_live_calls_enabled
-        and settings.truck_job_max_calls==settings.driving_job_max_calls==0
+        and settings.truck_job_max_calls is None and settings.driving_job_max_calls is None
         and payload['amap_js_key'] is None and payload['amap_security_js_code'] is None,
-            'Private child must use only the public invalid placeholder, disabled live calls and zero-call limits')
+            'Private child must use only the public invalid placeholder and explicitly disabled live calls')
     # preflight requires a truthy key even for cached roads; this public invalid
     # value is never a credential and cannot be used with a live-enabled child.
     payload['amap_web_service_key']=PRIVATE_KEY_PLACEHOLDER
