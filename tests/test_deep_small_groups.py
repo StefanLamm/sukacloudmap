@@ -449,7 +449,7 @@ def test_source_observations_keep_fifo_distinct_orders_without_fee_ranking(monke
         lambda data, road, incumbent, *args: (incumbent, {'elapsed_seconds': 0}))
     received = []
     def select(*args, **kwargs):
-        received.extend(deepcopy(kwargs['candidate_recipes']))
+        received.extend(deepcopy(list(kwargs['candidate_recipes'])))
         return deepcopy(value)
     monkeypatch.setattr('app.route_columns.select_portfolio', select)
     result = optimize_deep(body, road, 20, experiments={})
@@ -508,6 +508,7 @@ def test_full_seed_fifo_preserves_complete_allocations_and_independent_useful_re
     monkeypatch.setattr('app.route_deep._pre_selection_macros', macro)
     received = {}
     def select(*args, **kwargs):
+        kwargs['candidate_recipes'] = list(kwargs['candidate_recipes'])
         received.update(deepcopy(kwargs))
         return deepcopy(improved)
     monkeypatch.setattr('app.route_columns.select_portfolio', select)
@@ -523,6 +524,27 @@ def test_full_seed_fifo_preserves_complete_allocations_and_independent_useful_re
     assert recipe(value) in received['complete_recipes'] and recipe(improved) in received['complete_recipes']
     assert result['algorithm']['complete_round_allocations'] >= 2
     assert road.candidate_observer is prior
+
+
+def test_daily_planning_delivers_candidate_after_first_ten_thousand(monkeypatch):
+    body, road, value = split_problem()
+    stub_rounds(monkeypatch, [value])
+    late = {'vehicle_id': 'V0', 'task_ids': ['0', '1', '2', '3']}
+    def collect(data, road, incumbent, *args):
+        for n in range(10000):
+            road.candidate_observer({'vehicle_id': 'unused-' + str(n), 'task_ids': ['0']})
+        road.candidate_observer(deepcopy(late))
+        return deepcopy(value), {'elapsed_seconds': 0}, []
+    monkeypatch.setattr('app.route_deep._pre_selection_macros', collect)
+    monkeypatch.setattr('app.route_deep._post_selection_small_groups',
+        lambda data, road, incumbent, *args: (incumbent, {'elapsed_seconds': 0}))
+    result = optimize_deep(body, road, 20)
+    assert result['total_fee'] == '13.00' and complete(normalize(body), result)
+    assert recipe(result)['routes'] == [late]
+    assert result['algorithm']['candidate_pool_limit'] is None
+    assert result['algorithm']['distinct_route_count'] > 10000
+    assert result['algorithm']['dropped_candidate_observations'] == 0
+    assert not hasattr(road, 'deadline_limited_candidates')
 
 
 def test_cancel_during_post_retains_current_seed_and_restores_observer(monkeypatch):

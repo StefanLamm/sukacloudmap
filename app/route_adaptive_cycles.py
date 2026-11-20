@@ -103,6 +103,7 @@ def expand_candidate_cycles(search, *, quote_rotation=False, selection_loop=Fals
                     common_penalty_multiplier=(1, 2, .75, 4)[index % 4], on_batch=batch,
                     candidate_retention=getattr(getattr(search.road, 'deep_experiments', None),
                                                 'native_candidate_retention', 'first'),
+                    deadline_limited_candidates=getattr(search.road, 'deadline_limited_candidates', False),
                     **({'stage_trace':search.road.route_stage_trace} if getattr(search.road,'route_stage_trace',None) is not None else {}),
                     **({'candidate_stream_observer':search.road.native_candidate_stream_observer}
                        if getattr(search.road,'native_candidate_stream_observer',None) is not None else {}),

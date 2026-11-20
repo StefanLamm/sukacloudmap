@@ -33,11 +33,11 @@ export function planningProgressDetails(progress:PlanningProgress){
  const details:string[]=[];const finite=(n:unknown):n is number=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
  if(finite(progress.round_index)&&progress.round_index>0&&finite(progress.round_total)&&progress.round_total>0)details.push(`第 ${Math.min(Math.floor(progress.round_index),Math.floor(progress.round_total))} / ${Math.floor(progress.round_total)} 轮`);
  if(finite(progress.seed))details.push(`搜索起点 ${Math.floor(progress.seed)}`);
- if(finite(progress.elapsed_seconds)){
-  const seconds=Math.floor(progress.elapsed_seconds);details.push(seconds>=60?`已用 ${Math.floor(seconds/60)}分${seconds%60}秒`:`已用 ${seconds}秒`);
- }
- if(finite(progress.candidate_count))details.push(`已比较 ${Math.floor(progress.candidate_count)} 条候选线路`);
  return details.join(' · ');
+}
+export function elapsedTimeText(seconds: number) {
+ const whole = Math.max(0, Math.floor(seconds));
+ return whole >= 60 ? `${Math.floor(whole / 60)}分${whole % 60}秒` : `${whole}秒`;
 }
 export function progressFee(value?:string|null){
  if(typeof value!=='string'||!/^\d+(?:\.\d+)?$/.test(value))return null;

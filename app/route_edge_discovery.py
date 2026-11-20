@@ -12,7 +12,8 @@ from time import monotonic
 from app.routing_engine import RoadError, StopSearch, common_fee
 
 
-def compatible_edge_proposals(data, *, neighbours=6, incumbent=None, control=lambda:None):
+def compatible_edge_proposals(data, *, neighbours=6, incumbent=None, control=lambda:None,
+                              initial_measurements=False):
     groups, fleet = defaultdict(list), defaultdict(list)
     for car in data['vehicles'].values():
         if car['available']:
@@ -33,8 +34,11 @@ def compatible_edge_proposals(data, *, neighbours=6, incumbent=None, control=lam
             return
         opportunity = Decimal(common_fee(t['pieces'], t['common_unit_price']) or '0')
         mandatory = t['common_unit_price'] is None
-        proposed[origin, destination] = (not mandatory, priority, -opportunity,
-            min(cars, key=lambda c: (c['max_pieces'], c['id'])))
+        key = origin, destination
+        row = (not mandatory, priority, -opportunity,
+               min(cars, key=lambda c: (c['max_pieces'], c['id'])))
+        if key not in proposed or priority < proposed[key][1]:
+            proposed[key] = row
     def distance(a, b):
         try:
             latitude = (float(a['latitude']) + float(b['latitude'])) / 2
@@ -58,6 +62,11 @@ def compatible_edge_proposals(data, *, neighbours=6, incumbent=None, control=lam
         for route in incumbent['routes']:
             if not route['task_ids']:
                 continue
+            if initial_measurements:
+                origin = data['vehicles'][route['vehicle_id']]['warehouse_id']
+                for item in route['task_ids']:
+                    add(origin, item, -1)
+                    origin = item
             end = route['task_ids'][-1]
             task = data['tasks'][end]
             eligible = [i for i in common if data['tasks'][i]['warehouse_id'] == task['warehouse_id']
@@ -65,8 +74,13 @@ def compatible_edge_proposals(data, *, neighbours=6, incumbent=None, control=lam
             for other in sorted(eligible, key=lambda i: (distance(task, data['tasks'][i]), i))[:neighbours]:
                 add(end, other, 0)
                 add(other, end, 0)
-    return [(a, b, row[3]) for (a, b), row in sorted(proposed.items(), key=lambda pair: (
-        (pair[1][0], pair[1][2], pair[1][1]), pair[0]))]
+    def rank(pair):
+        (a, b), row = pair
+        if initial_measurements:
+            points = data['warehouses'] if a in data['warehouses'] else data['tasks']
+            return (row[0], row[1], distance(points[a], data['tasks'][b]), row[2], a, b)
+        return (row[0], row[2], row[1], a, b)
+    return [(a, b, row[3]) for (a, b), row in sorted(proposed.items(), key=rank)]
 
 
 def collect_promising_edges(data, road, control, *, incumbent=None, phase_wall_seconds=None, diagnostics=None):
@@ -97,7 +111,8 @@ def collect_promising_edges(data, road, control, *, incumbent=None, phase_wall_s
     before = road.stats().get('calls', 0)
     points = {**data['warehouses'], **data['tasks']}
     try:
-        proposals = compatible_edge_proposals(data, incumbent=incumbent, control=tick)
+        proposals = compatible_edge_proposals(data, incumbent=incumbent, control=tick,
+            initial_measurements=getattr(road, 'fresh_only', False))
         result['proposed_directions'] = len(proposals)
         for a, b, car in proposals:
             tick()

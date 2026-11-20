@@ -184,11 +184,16 @@ def test_saturated_first_native_pool_skips_callbacks_unless_explicit_trace_enabl
         model.candidate_stream_observer = lambda row: None
         callback()
         assert collected == ['sample'] and model.solution_count == 2
+        model.candidate_stream_observer = None
+        model.candidate_limit = None
+        callback()
+        assert collected == ['sample', 'sample'] and model.solution_count == 3
     finally:
         model.dispose()
 
 
-def test_explicit_native_trace_records_late_identity_without_enlarging_first_pool():
+@pytest.mark.parametrize('limit', [10000, None])
+def test_native_collection_preserves_late_identity_only_without_fixed_limit(limit):
     from app.route_ortools import _MeasuredModel
     from types import SimpleNamespace
     model = _MeasuredModel.__new__(_MeasuredModel)
@@ -198,6 +203,7 @@ def test_explicit_native_trace_records_late_identity_without_enlarging_first_poo
     model.task_nodes = {1: 'late'}
     model.ids = ['late']
     model.retention = None
+    model.candidate_limit = limit
     model.stage_trace = None
     model.trace_scope = None
     model.candidate_specs = {('old', (str(index),)): {} for index in range(10000)}
@@ -205,8 +211,8 @@ def test_explicit_native_trace_records_late_identity_without_enlarging_first_poo
     model.candidate_stream_observer = trace.append
     assignment = model._collect(lambda node: node + 1)
     assert assignment == trace == [{'vehicle_id': 'V0', 'task_ids': ['late']}]
-    assert len(model.candidate_specs) == 10000
-    assert ('V0', ('late',)) not in model.candidate_specs
+    assert len(model.candidate_specs) == (10001 if limit is None else 10000)
+    assert (('V0', ('late',)) in model.candidate_specs) == (limit is None)
 
 
 def test_replay_rejects_external_invalid_identities():

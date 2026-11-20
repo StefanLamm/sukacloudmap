@@ -16,14 +16,15 @@ from test_stage4 import basis
 
 
 @pytest.mark.parametrize('adapter,payload,mode',[(DrivingRoad,response,'DRIVING'),(TruckRoad,truck_response,'TRUCK')])
-def test_production_exceeds_350_and_keeps_shared_qps_cache_and_cancel(settings,tmp_path,adapter,payload,mode):
+@pytest.mark.parametrize('fresh_only', [False, True])
+def test_production_exceeds_350_and_keeps_shared_qps_cache_and_cancel(settings,tmp_path,adapter,payload,mode,fresh_only):
     settings.amap_web_service_key=SecretStr('TEST_ONLY')
     settings.planning_route_mode=mode
     settings.driving_live_calls_enabled=settings.truck_live_calls_enabled=True
     clock=Clock();v,a,b=truck_data();starts=[];cancel=[False]
     def handler(request):
         starts.append(clock());return httpx.Response(200,json=payload())
-    road=adapter(settings,350,production_planning=True,transport=httpx.MockTransport(handler),
+    road=adapter(settings,350,production_planning=True,fresh_only=fresh_only,transport=httpx.MockTransport(handler),
                  limiter=pacer(tmp_path/'shared.db',clock),timer=clock,cancelled=lambda:cancel[0])
     # Legacy and temporary search quotas cannot restore a production ceiling.
     road.call_limit=10;road.call_limit=0
@@ -37,7 +38,7 @@ def test_production_exceeds_350_and_keeps_shared_qps_cache_and_cancel(settings,t
     # The frozen response is usable without issuing a new HTTP request.
     road.segment(v,a,{**b,'id':'S360','longitude':str(121.5+360*.0001)},AT)
     assert road.calls==361
-    with pytest.raises(RoadError) as exc:road.segment(v,a,{**b,'id':'NEW'},AT)
+    with pytest.raises(RoadError) as exc:road.segment(v,a,{**b,'id':'NEW','longitude':'121.6'},AT)
     assert exc.value.code=='CANCELLED' and road.calls==361
 
 

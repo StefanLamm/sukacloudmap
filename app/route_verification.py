@@ -55,9 +55,10 @@ class CollectedDrivingRoad:
     call_limit = 0
     io_seconds = 0.
 
-    def __init__(self, receipts, started_at):
+    def __init__(self, receipts, started_at, *, allow_expired=False):
         self.receipts = receipts
         self.started_at = started_at
+        self.allow_expired = bool(allow_expired)
         self.hits = 0
 
     @staticmethod
@@ -68,7 +69,7 @@ class CollectedDrivingRoad:
         source = self.receipts.get(self.key(origin, destination))
         if source is None:
             return None
-        if not DrivingRoad.valid_reference(source) or source['received_at'] < self.started_at:
+        if not DrivingRoad.valid_reference(source, allow_expired=self.allow_expired) or source['received_at'] < self.started_at:
             return None
         return {k: source[k] for k in ('meters', 'seconds', 'received_at')}
 
@@ -110,7 +111,7 @@ class CollectedDrivingRoad:
                 actual = self.receipts.get(key)
                 receipt = {**segment['actual_source_receipt'], 'polyline': segment['polyline']}
                 request = receipt.get('request', {})
-                if (actual is None or receipt != actual or not DrivingRoad.valid_reference(receipt)
+                if (actual is None or receipt != actual or not DrivingRoad.valid_reference(receipt, allow_expired=self.allow_expired)
                         or not self.started_at <= receipt['received_at'] <= finished_at
                         or request.get('source') != 'DRIVING' or request.get('endpoint') != DRIVING_ENDPOINT
                         or request.get('strategy') != 32
@@ -130,24 +131,29 @@ class DrivingCollector:
         self.cancelled = cancelled
         self.control = control
         self.optional_control = optional_control or control
-        self.started_at = int(time.time())
+        self.job_fresh_only = bool(getattr(road, 'fresh_only', False))
+        self.started_at = (int(road.batch_started_at) if self.job_fresh_only else int(time.time()))
         self.receipts = {}
         self.failed_directions = {}
-        self.frozen = CollectedDrivingRoad(self.receipts, self.started_at)
+        self.frozen = CollectedDrivingRoad(self.receipts, self.started_at, allow_expired=self.job_fresh_only)
         self.calls_before = road.stats().get('calls', 0)
         self.failures_before = road.stats().get('failures', 0)
         self.max_bridge_edges = None if getattr(road, 'production_planning', False) else max_bridge_edges
         self.bridge_edges = 0
         self.bridge_budget_exhausted = 0
         self.initial_pass = True
-        self._original_flags = (road.force_refresh, road.allow_historical,
-                                road._freshened_keys, road._fresh_bound_keys)
-        road.force_refresh, road.allow_historical = True, False
-        road._freshened_keys, road._fresh_bound_keys = set(), set()
+        self.reused_directions = 0
+        self._original_flags = None
+        if not self.job_fresh_only:
+            self._original_flags = (road.force_refresh, road.allow_historical,
+                                     road._freshened_keys, road._fresh_bound_keys)
+            road.force_refresh, road.allow_historical = True, False
+            road._freshened_keys, road._fresh_bound_keys = set(), set()
 
     def close(self):
-        (self.road.force_refresh, self.road.allow_historical,
-         self.road._freshened_keys, self.road._fresh_bound_keys) = self._original_flags
+        if self._original_flags is not None:
+            (self.road.force_refresh, self.road.allow_historical,
+              self.road._freshened_keys, self.road._fresh_bound_keys) = self._original_flags
 
     def known_segment(self, origin, destination):
         return self.frozen.known_segment(origin, destination)
@@ -161,27 +167,35 @@ class DrivingCollector:
             if key in self.failed_directions:
                 code, message = self.failed_directions[key]
                 raise RoadError(code, message)
+            reused = self.road.batch_receipt(key) if self.job_fresh_only else None
             if not self.initial_pass:
                 self.optional_control()
-                if self.max_bridge_edges is not None and self.bridge_edges >= self.max_bridge_edges:
+                if reused is None and self.max_bridge_edges is not None and self.bridge_edges >= self.max_bridge_edges:
                     self.bridge_budget_exhausted += 1
                     raise RoadError('DEEP_BRIDGE_BUDGET', '本轮新增连接路段复核已达到时限内的搜索上限')
-                self.bridge_edges += 1
+                if reused is None:
+                    self.bridge_edges += 1
             try:
-                raw = self.road.segment(vehicle, origin, destination, departure)
+                raw = reused
+                if raw is None:
+                    raw = self.road.segment(vehicle, origin, destination, departure)
+                    if self.job_fresh_only:
+                        raw = self.road.batch_receipt(key)
             except RoadError as exc:
                 # A permutation search must not retry the same failed provider
                 # direction thousands of times in one immutable validation batch.
                 self.failed_directions[key] = exc.code, exc.message
                 raise
-            if (not DrivingRoad.valid_reference(raw) or raw['received_at'] < self.started_at
-                    or key not in self.road._freshened_keys
+            if (not DrivingRoad.valid_reference(raw, allow_expired=self.job_fresh_only) or raw['received_at'] < self.started_at
+                    or (not self.job_fresh_only and key not in self.road._freshened_keys)
                     or raw['request'].get('source') != 'DRIVING'
                     or raw['request'].get('endpoint') != DRIVING_ENDPOINT
                     or raw['request'].get('strategy') != 32
                     or self.frozen.key(raw['request']['origin'], raw['request']['destination']) != key):
                 raise RoadError('DEEP_NOT_FRESH', '该道路未取得本轮实时回执')
             self.receipts[key] = deepcopy(raw)
+            if reused is not None:
+                self.reused_directions += 1
         return self.frozen.segment(vehicle, origin, destination, departure)
 
     def stats(self):
@@ -574,11 +588,12 @@ def _allocation_key(draft):
 
 def validate_driving(body, road, candidate, alternatives, *, cancelled, control,
                      repair_control, progress, selection_seconds=5, complete_recipes=(),
-                     max_bridge_edges=64):
+                     max_bridge_edges=64, deadline_limited_candidates=False):
     """Return the cheapest verified allocation found on the fresh batch."""
     data = normalize(body)
     collector = DrivingCollector(road, cancelled, control, max_bridge_edges=max_bridge_edges,
                                  optional_control=repair_control)
+    collector.frozen.deadline_limited_candidates = deadline_limited_candidates
     repair_log = []
     repair_recipes = []
     try:
@@ -652,6 +667,9 @@ def validate_driving(body, road, candidate, alternatives, *, cancelled, control,
                       'selected_provider_count': len(selected), 'source_count': len(collector.receipts),
                       'actual_calls': stats.get('calls', 0) - collector.calls_before,
                       'total_job_calls': stats.get('calls', 0),
+                      'reused_job_directions': collector.reused_directions,
+                      'measurement_policy': ('CURRENT_JOB_PROVIDER_ONLY' if collector.job_fresh_only
+                                             else 'FINAL_PROVIDER_BATCH'),
                       'failures': stats.get('failures', 0) - collector.failures_before,
                       'oldest_received_at': min(ages, default=None), 'newest_received_at': max(ages, default=None),
                       'selected_subset_of_collected': set(selected).issubset(collector.receipts),

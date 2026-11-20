@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 
 from app.api import ApiError, event, stamp
 from app.database import start_write
-from app.models import Account, InputSnapshot, PlanningJob, PlanVersion, RoadCache, now
+from app.models import Account, InputSnapshot, PlanningJob, PlanVersion, now
 from app.planning_inputs import content_hash, encode, input_context
 from app.road_service import DrivingRoad, SyntheticRoad, TruckRoad
 from app.auto_dedicated import allocate_dedicated
@@ -101,7 +101,7 @@ def job_view(db, job):
     return {'id': job.id, 'delivery_date': job.delivery_date, 'group_id':job.group_id, 'status': job.status, 'kind': job.kind,
             'cancel_requested': job.cancel_requested, 'budget_seconds':compute_seconds,
             'wall_budget_seconds':planning_wall_budget_seconds(compute_seconds,payload.get('wall_budget_seconds')),
-            'created_at': stamp(job.created_at), 'started_at': stamp(job.started_at),
+            'server_now': stamp(epoch_now()), 'created_at': stamp(job.created_at), 'started_at': stamp(job.started_at),
             'finished_at': stamp(job.finished_at), 'error_code': job.error_code, 'error_message': job.error_message,
             'plan_id': plan.id if plan else None, 'progress':progress,
             'summary': {'total_fee': result['total_fee'], 'valid': result['check']['valid'],
@@ -167,7 +167,7 @@ def verify_deep_result(body,result,road,was_cancelled=False):
             try:canonical=content_hash(DrivingRoad.reference_request(request.get('origin',{}),request.get('destination',{})))
             except (KeyError,TypeError,ValueError,RoadError):
                 raise ApiError(422,'DEEP_ROAD_RECEIPT','道路实际回执的坐标记录无效，未保存新方案。') from None
-            if (canonical!=key or not DrivingRoad.valid_reference(receipt)
+            if (canonical!=key or not DrivingRoad.valid_reference(receipt, allow_expired=getattr(road, 'fresh_only', False))
                 or not started<=receipt['received_at']<=finished
                 or segment.get('time_status')!='CURRENT_TRAFFIC_REFERENCE'
                 or segment.get('provider_evidence_hash')!=receipt['evidence_hash']
@@ -177,17 +177,47 @@ def verify_deep_result(body,result,road,was_cancelled=False):
             selected[key]={k:receipt[k] for k in ('received_at','meters','seconds','evidence_hash')}
             origin=target
     counters=(validation.get('actual_calls'),validation.get('total_job_calls'),validation.get('source_count'))
-    if (any(isinstance(n,bool) or not isinstance(n,int) or n<0 for n in counters)
-        or validation.get('total_job_calls')!=road.stats().get('calls')
+    if any(type(n) is not int or n < 0 for n in counters):
+        raise ApiError(422,'DEEP_ROAD_RECEIPT','道路采集数量无效，未保存新方案。')
+    batch_mode = getattr(road, 'fresh_only', False)
+    reused = validation.get('reused_job_directions', 0) if batch_mode else 0
+    if batch_mode and (validation.get('measurement_policy') != 'CURRENT_JOB_PROVIDER_ONLY'
+            or started != road.batch_started_at
+            or type(reused) is not int or not 0 <= reused <= validation.get('source_count', -1)):
+        raise ApiError(422,'DEEP_ROAD_RECEIPT','本轮道路采集批次记录不一致，未保存新方案。')
+    verified_directions = validation.get('actual_calls',0) + reused
+    if (validation.get('total_job_calls')!=road.stats().get('calls')
         or validation.get('actual_calls',0)>validation.get('total_job_calls',0)
-        or validation.get('source_count',0)>validation.get('actual_calls',0)
+        or validation.get('source_count',0)>verified_directions
         or validation.get('source_count',0)<len(selected)
         or validation.get('selected_provider_sources')!=selected or validation.get('selected_provider_count')!=len(selected)
         or validation.get('selected_segments')!=sum(len(row['segments']) for row in result['routes'])
         or validation.get('selected_subset_of_collected') is not True
         or not isinstance(validation.get('actual_calls'),int) or isinstance(validation.get('actual_calls'),bool)
-        or validation['actual_calls']<len(selected)):
+        or verified_directions<len(selected)):
         raise ApiError(422,'DEEP_ROAD_RECEIPT','道路采集数量与最终选择不一致，未保存新方案。')
+    if batch_mode:
+        for key, metadata in selected.items():
+            receipt = road.batch_receipt(key)
+            if receipt is None or any(receipt.get(k)!=v for k,v in metadata.items()):
+                raise ApiError(422,'DEEP_ROAD_RECEIPT','选中道路不属于本轮实时采集批次，未保存新方案。')
+
+
+def _verify_current_job_roads(result, road):
+    """Check that priced manual and truck routes use only measurements made by this job."""
+    if not getattr(road, 'fresh_only', False):
+        return
+    for route in result['routes']:
+        for segment in route['segments']:
+            request = segment['request']
+            if isinstance(road, DrivingRoad):
+                key = content_hash(DrivingRoad.reference_request(request['origin'], request['destination']))
+                measured = road.batch_receipt(key)
+            else:
+                measured = road.local.get(content_hash(request))
+            if (measured is None or measured.get('received_at', 0) < road.batch_started_at
+                    or any(segment.get(k) != measured.get(k) for k in ('meters','seconds','received_at','polyline'))):
+                raise ApiError(422,'CURRENT_ROAD_REQUIRED','参与核算的道路不属于本轮高德回执，未保存新方案。')
 
 
 class PlanningRunner:
@@ -320,45 +350,11 @@ class PlanningRunner:
                     # valid optimization incumbent. The lease/cancel gates
                     # remain authoritative before any final publication.
                     log.warning('planning_progress_error exception_type=%s',type(exc).__name__)
-            def cache_get(key):
-                with self.sessions() as db:
-                    cache = db.get(RoadCache, key)
-                    if not cache or cache.expires_at <= now(): return None
-                    item = json.loads(cache.content)
-                    if content_hash(item['request']) != key or content_hash({k:v for k,v in item.items() if k != 'evidence_hash'}) != item['evidence_hash']: return None
-                    return item
-            def cache_put(key,item):
-                with self.sessions() as db:
-                    start_write(db,self.engine); row = db.get(RoadCache,key)
-                    if row: row.content=encode(item); row.expires_at=now()+3600
-                    else: db.add(RoadCache(key=key,content=encode(item),expires_at=now()+3600))
-                    db.commit()
             adapter = DrivingRoad if self.settings.planning_route_mode == 'DRIVING' else TruckRoad
-            # Daily deep planning first searches the measured reference graph.
-            # Its final phase always validates selected roads independently;
-            # forcing every exploratory candidate upstream would waste QPS.
-            manual_refresh=job.kind=='MANUAL' and payload.get('refresh_roads',False)
-            adapter_options={'allow_historical':not manual_refresh,
-                             'force_refresh':bool(manual_refresh and self.settings.road_calls_enabled)} if adapter is DrivingRoad else {}
             wall_control()
             road = SyntheticRoad(normalize(body)) if self.settings.planning_road_source == 'TEST_GRID' else adapter(
-                self.settings,None,cache_get,cache_put,cancelled=cancelled,
-                production_planning=True,wall_deadline=wall_deadline,network_control=wall_control,**adapter_options)
-            wall_control()
-            if isinstance(road,DrivingRoad):
-                # Only the provider's ordinary-driving current-reference paths
-                # are reusable across local vehicle/ETD bindings; truck proof is not.
-                with self.sessions() as cache_db:
-                    total_bytes=0
-                    rows=cache_db.scalars(select(RoadCache).order_by(RoadCache.expires_at.desc()).limit(10000).execution_options(yield_per=50))
-                    for cached_row in rows:
-                        wall_control()
-                        total_bytes+=len(cached_row.content)
-                        if total_bytes>128*1024*1024:break
-                        try:
-                            item=json.loads(cached_row.content)
-                            if content_hash(item['request'])==cached_row.key:road.seed_reference_cache([item])
-                        except (KeyError,ValueError,TypeError):continue
+                self.settings,cancelled=cancelled,fresh_only=True,
+                production_planning=True,wall_deadline=wall_deadline,network_control=wall_control)
             preparation_seconds=time.monotonic()-job_started
             wall_control()
             if job.kind == 'OPTIMIZE':
@@ -388,7 +384,11 @@ class PlanningRunner:
                 if parent_result: compare_manual(result,parent_result)
             if self.settings.planning_road_source == 'TEST_GRID':
                 result['confirmable']=False;result['road_source']='FIXTURE';result['execution_scope']='TEST_ONLY'
+            _verify_current_job_roads(result, road)
             if job.kind == 'OPTIMIZE':
+                if (isinstance(road, DrivingRoad) and road.fresh_only and road.calls
+                        and not road.stats()['job_measured_directions']):
+                    raise ApiError(502,'CURRENT_AMAP_UNAVAILABLE','本轮高德未返回可用道路，未生成替代方案，请稍后重试。')
                 verify_deep_result(body,result,road,cancelled())
                 result_verified=True
                 progress({'stage':'SAVING','message':'校验完成，正在保存最低费用可行方案','best_fee':result['total_fee']})

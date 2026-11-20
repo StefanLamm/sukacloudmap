@@ -9,6 +9,7 @@ from math import ceil
 from math import isfinite
 from dataclasses import asdict
 from decimal import Decimal
+from itertools import chain
 import time
 
 from app.api import ApiError
@@ -102,11 +103,18 @@ def _validated_without_io(data, result, road):
                     return None
                 if segment['source'] == 'DRIVING':
                     received = segment.get('received_at')
+                    if getattr(road, 'fresh_only', False):
+                        key = content_hash(DrivingRoad.reference_request(origin, destination))
+                        actual = road.batch_receipt(key)
+                        if (actual is None or actual['received_at'] < road.batch_started_at
+                                or any(segment.get(k) != actual[k] for k in ('received_at','meters','seconds','polyline'))
+                                or actual['evidence_hash'] not in (segment.get('evidence_hash'), segment.get('provider_evidence_hash'))):
+                            return None
                     if (not isinstance(received, int) or isinstance(received, bool)
                             or not 0 <= int(time.time()) - received < 7 * 86400
                             or not DrivingRoad.valid_reference(segment, allow_expired=True, allow_historical_status=True)):
                         return None
-                    if int(time.time()) - received >= 3600:
+                    if int(time.time()) - received >= 3600 and not getattr(road, 'fresh_only', False):
                         segment['time_status'] = 'HISTORICAL_TRAFFIC_REFERENCE'
                         segment['notice'] = '已有实路参考；保留原采集时间，本次未更新实时道路'
                         segment['evidence_hash'] = content_hash({k: v for k, v in segment.items() if k != 'evidence_hash'})
@@ -276,7 +284,8 @@ def _pre_selection_macros(data, road, incumbent, budget, seed, cancelled):
             if identity not in seen:
                 seen.add(identity)
                 recipes.append({'vehicle_id': row['vehicle_id'], 'task_ids': list(identity)})
-                if len(recipes) >= MAX_OBSERVED_RECIPES:
+                if (not getattr(road, 'deadline_limited_candidates', False)
+                        and len(recipes) >= MAX_OBSERVED_RECIPES):
                     break
         details.update(candidate_count=search.evaluations, macro_order_count=len(recipes),
                        after_complete=complete(data,search.best))
@@ -414,7 +423,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     observed = OrderedDict()
     observation_count = dropped_observations = 0
     duplicate_observations = 0
-    max_recipes = 10000
+    deadline_limited_candidates = experiments is None
+    max_recipes = None if deadline_limited_candidates else MAX_OBSERVED_RECIPES
     retention = None
     if switches.candidate_retention != 'first':
         from app.route_retention import CandidateRetention
@@ -426,7 +436,9 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                         'seed': seed, 'candidate_count': 0}
     baseline_common = {i for i, task in data['tasks'].items() if task['common_unit_price'] is not None}
     best = assemble(data, [], baseline_common, set(data['tasks']) - baseline_common)
-    initial = _validated_without_io(data, initial_result, road) if initial_result is not None else None
+    # A prior job supplies route structure only. Fresh replay prices it later.
+    initial = (_validated_without_io(data, initial_result, road) if initial_result is not None
+               and not (getattr(road, 'fresh_only', False) and initial_result.get('routes')) else None)
     if initial is not None and result_rank(initial) < result_rank(best):
         best = initial
     best_complete = deepcopy(best) if complete(data, best) else None
@@ -442,7 +454,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     macro_recipes = []
     optional_candidate_count = 0
     previous_job_attributes = {name: (hasattr(road, name), getattr(road, name, None))
-                               for name in ('search_diagnostics', 'deep_experiments', 'priced_candidate_observer')}
+                               for name in ('search_diagnostics', 'deep_experiments',
+                                            'priced_candidate_observer', 'deadline_limited_candidates')}
     eligible_count = sum(bool(task['signature']) and any(
         car['available'] and car['warehouse_id'] == task['warehouse_id']
         and car['max_pieces'] >= task['pieces'] for car in data['vehicles'].values())
@@ -463,6 +476,19 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
 
     def interrupted():
         return cancelled() or budget.elapsed() >= budget.wall_seconds
+
+    use_live_batch = isinstance(road, DrivingRoad) and getattr(road, 'fresh_only', False)
+    prior_network_control = getattr(road, 'network_control', None)
+    final_wall_reserve = min(180., budget.wall_seconds * .20) if use_live_batch else 0.
+
+    def search_time_guard():
+        if use_live_batch and budget.elapsed() >= budget.wall_seconds - final_wall_reserve:
+            raise StopSearch('SEARCH_WALL_RESERVE')
+
+    def search_network_control():
+        if prior_network_control is not None:
+            prior_network_control()
+        search_time_guard()
 
     def emit(update):
         if 'stage' in update and 'optimization_phase' not in update:
@@ -490,7 +516,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         if retention is not None:
             retention.observe(spec)
         elif key not in observed:
-            if len(observed) >= max_recipes:
+            if max_recipes is not None and len(observed) >= max_recipes:
                 dropped_observations += 1
             else:
                 observed[key] = {'vehicle_id': key[0], 'task_ids': list(key[1])}
@@ -554,7 +580,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         nonlocal optional_candidate_count
         try:
             strengthened, details = _optional_refinement(data, road, best_complete or best,
-                budget, seed, interrupted, method, recipes=[*macro_recipes, *observed.values()])
+                budget, seed, interrupted, method, recipes=chain(macro_recipes, observed.values()))
         except StopSearch as exc:
             details = getattr(exc, 'optional_refinement_diagnostics', None)
             if details is not None:
@@ -580,7 +606,10 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     road.priced_candidate_observer = observe_priced if needs_prices else None
     road.search_diagnostics = diagnostics
     road.deep_experiments = switches
+    road.deadline_limited_candidates = deadline_limited_candidates
     try:
+        if use_live_batch:
+            road.network_control = search_network_control
         if reserve_calls:
             # Fresh validation cannot reuse search receipts. Keep one attempt
             # per eligible task; retries and repair bridges may still need more.
@@ -594,9 +623,27 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             stages.append(edge_stage)
             edge_started = time.monotonic()
             try:
+                prior = initial_result if (getattr(road, 'fresh_only', False)
+                    and initial_result is not None and complete(data, initial_result)) else best_complete
                 edge_details.update(collect_promising_edges(data, road, budget.control,
-                    incumbent=best_complete, phase_wall_seconds=max(0., budget.wall_seconds*.25-budget.elapsed()),
+                    incumbent=prior, phase_wall_seconds=max(0., budget.wall_seconds*.25-budget.elapsed()),
                     diagnostics=edge_details))
+                if prior is initial_result and prior is not None:
+                    replay_started = budget.elapsed()
+                    replay_limit = max(1., budget.wall_seconds * .035)
+                    def replay_control():
+                        budget.control()
+                        if budget.elapsed() - replay_started >= replay_limit:
+                            raise StopSearch('INITIAL_REPLAY_BUDGET')
+                    try:
+                        refreshed = replay(data, recipe(prior), road, replay_control)
+                        if complete(data, refreshed):
+                            keep(refreshed)
+                            edge_details['initial_plan_repriced_fee'] = refreshed['total_fee']
+                    except StopSearch as exc:
+                        if exc.reason != 'INITIAL_REPLAY_BUDGET':
+                            raise
+                        edge_details['initial_replay_stop_reason'] = exc.reason
             finally:
                 edge_stage['elapsed_seconds'] = round(time.monotonic()-edge_started,6)
         # Construct the first search seed from the current input, without an
@@ -634,6 +681,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
               'message': '正在比较不同专车与共配组合'})
         for index in range(planned_rounds):
             budget.control()
+            search_time_guard()
             available = search_allowance - budget.compute()
             if available <= .001:
                 break
@@ -685,6 +733,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             stages.append(item)
             budget.control()
         emit({'stage': 'COLUMN_SELECTION', 'message': '正在比较配送方案总费用'})
+        search_time_guard()
         flush_observations()
         stream_observer = getattr(road, 'candidate_stream_observer', None)
         if callable(stream_observer):
@@ -704,7 +753,7 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             road.call_limit = min(road.calls, old_call_limit) if old_call_limit is not None else road.calls
         try:
             pooled = select_portfolio(body, road, [best_complete or best],
-                                      candidate_recipes=[*macro_recipes, *observed.values()],
+                                      candidate_recipes=chain(macro_recipes, observed.values()),
                                       complete_recipes=complete_allocations,
                                       seconds=min(60., remaining), cancelled=interrupted,
                                       progress=emit)
@@ -739,6 +788,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             for stage in ('DEEP_OBSERVED','DEEP_RETAINED','COMPLETE_PROTECTED'):
                 trace.mark(stage, status='INTERRUPTED', reason=exc.reason, scope='CURRENT_RUN')
     finally:
+        if use_live_batch:
+            road.network_control = prior_network_control
         if reserve_calls:
             road.call_limit = original_call_limit
         calls_after_search = road.stats().get('calls', 0)
@@ -786,15 +837,17 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             def optional_validation_control():
                 budget.control()
                 if budget.wall_seconds - budget.elapsed() <= proof_reserve:
-                    raise StopSearch('WALL_BUDGET')
+                    raise StopSearch('VALIDATION_PROOF_RESERVE')
             try:
                 chosen, validation = validate_driving(body, road, chosen,
-                    [{**deepcopy(best_complete or best), 'candidate_routes': [*macro_recipes, *observed.values()]}],
+                    [{**deepcopy(best_complete or best), 'candidate_routes': chain(macro_recipes, observed.values())}],
                     cancelled=cancelled, control=lambda: budget.control(compute=False),
                     repair_control=optional_validation_control, progress=emit,
                     selection_seconds=lambda: min(15., max(0., min(budget.seconds - budget.compute(),
                         budget.wall_seconds - budget.elapsed() - proof_reserve))),
-                    complete_recipes=complete_allocations, max_bridge_edges=None if getattr(road, 'production_planning', False) else bridge_limit)
+                    complete_recipes=complete_allocations,
+                    max_bridge_edges=None if getattr(road, 'production_planning', False) else bridge_limit,
+                    deadline_limited_candidates=deadline_limited_candidates)
             except StopSearch as exc:
                 stopped = exc.reason
                 if exc.reason != 'CANCELLED':
@@ -844,7 +897,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         trace.mark('FINAL',status='COMPLETE',scope='INDEPENDENTLY_VERIFIED_FINAL_ALLOCATION')
     source_algorithm = deepcopy(chosen.get('algorithm', {}))
     retention_details = (retention.diagnostics() if retention is not None else
-        {'policy': 'first', 'limit': max_recipes, 'generated_observations': observation_count,
+        {'policy': 'deadline_dedup' if deadline_limited_candidates else 'first',
+         'limit': max_recipes, 'generated_observations': observation_count,
          'duplicate_observations': duplicate_observations, 'retained_candidates': len(observed),
          'capacity_rejected_observations': dropped_observations, 'flush_seconds': 0.})
     retention_details['protected_complete_allocations'] = len(complete_allocations)

@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {beforeEach,expect,it,vi} from 'vitest';
 import {PlanPanel} from './plan-panel';
 import type {DayData} from './demand-panel';
@@ -25,7 +25,7 @@ it('新分组默认300秒自动深度规划，不再提供跳过自动道路复�
  const initial=mock.api.getMockImplementation()!;
  mock.api.mockImplementation(async(path:string,method='GET',body?:unknown)=>path==='/planning/jobs'&&method==='POST'?{id:'J',kind:'OPTIMIZE',status:'COMPLETED',cancel_requested:false,plan_id:null}:initial(path,method,body));
  render(<PlanPanel day={day} groupId="G" demand={demand} notify={()=>{}}/>);
- await screen.findByText(/自动调用高德复核选中道路并重新报价/);
+ await screen.findByText(/搜索、核算和复核均使用本轮高德回执/);
  expect((screen.getByLabelText('优化时限') as HTMLInputElement).value).toBe('300');
  expect(screen.getByText(/优化计算上限 300 秒；总等待上限 900 秒（含排队、道路及复核）/)).toBeTruthy();
  const control=screen.getByLabelText('优化时限');expect(control.getAttribute('aria-describedby')).toBeTruthy();
@@ -53,7 +53,9 @@ it('显示服务端实际阶段、轮次、起点和参考费用，并允许取�
  render(<PlanPanel day={day} groupId="G" demand={demand} notify={()=>{}}/>);
  expect(await screen.findByText('深度规划 · 多轮搜索')).toBeTruthy();
  expect(screen.getByText('正在比较不同专车与共配组合')).toBeTruthy();
- expect(screen.getByText('第 2 / 6 轮 · 搜索起点 17 · 已用 2分5秒 · 已比较 217 条候选线路')).toBeTruthy();
+ expect(screen.getByText('第 2 / 6 轮 · 搜索起点 17')).toBeTruthy();
+ expect(screen.getByRole('timer').textContent).toBe('已用 2分5秒');
+ expect(screen.queryByText(/已比较.*候选线路/)).toBeNull();
  expect(screen.getByText('当前参考最低费用 ¥62.50')).toBeTruthy();
  expect(screen.getByText('道路复核后确认最终报价')).toBeTruthy();
  expect(screen.getByText(/优化计算上限 900 秒；总等待上限 777 秒（含排队、道路及复核）/)).toBeTruthy();
@@ -66,6 +68,50 @@ it('显示服务端实际阶段、轮次、起点和参考费用，并允许取�
  expect(mock.api.mock.calls.some(c=>c[0]==='/planning/jobs/J/cancel'&&c[1]==='POST')).toBe(true);
 });
 
+it('从任务受理时计时，轮询暂停或阶段变化时继续前进，完成后停止计时', async () => {
+ vi.useFakeTimers();
+ vi.setSystemTime(new Date('2030-01-01T00:00:00Z'));
+ const initial = mock.api.getMockImplementation()!;
+ const queued = {
+  id: 'J', kind: 'OPTIMIZE', status: 'QUEUED', cancel_requested: false,
+  plan_id: null, error_message: null, created_at: '2026-11-13T08:00:00+08:00',
+  server_now: '2026-11-13T00:00:02Z',
+ };
+ const running = {
+  ...queued, status: 'RUNNING', server_now: '2026-11-13T00:00:03Z',
+  progress: {stage: 'ROAD_VALIDATION', elapsed_seconds: 0.5, candidate_count: 10000},
+ };
+ let answerPoll: ((value: typeof queued) => void) | undefined;
+ mock.api.mockImplementation(async (path: string, method = 'GET') => {
+  if (path.startsWith('/planning/days/') && path.includes('/jobs')) return {items: [queued]};
+  if (path === '/planning/jobs/J') return new Promise(resolve => {answerPoll = resolve;});
+  return initial(path, method);
+ });
+ const view = render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
+ try {
+  await act(async () => {});
+  expect(screen.getByText('任务等待执行')).toBeTruthy();
+  expect(screen.getByRole('timer').textContent).toBe('已用 2秒');
+
+  await act(async () => {await vi.advanceTimersByTimeAsync(2200);});
+  expect(screen.getByRole('timer').textContent).toBe('已用 4秒');
+
+  await act(async () => answerPoll!(running));
+  expect(screen.getByText('深度规划 · 道路复核与修复')).toBeTruthy();
+  expect(screen.getByRole('timer').textContent).toBe('已用 4秒');
+  expect(screen.queryByText(/10000 条候选线路/)).toBeNull();
+
+  await act(async () => {await vi.advanceTimersByTimeAsync(1000);});
+  expect(screen.getByRole('timer').textContent).toBe('已用 5秒');
+  await act(async () => answerPoll!({...queued, status: 'COMPLETED'}));
+  expect(screen.queryByRole('timer')).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+ } finally {
+  view.unmount();
+  vi.useRealTimers();
+ }
+});
+
 it.each([
  ['FRESH_DRIVING_VALIDATED',true,'已按本轮高德道路复核并重新报价'],
  ['OFFLINE_REFERENCE_VALIDATED',false,'已用已有道路参考复核，未实时更新道路'],
@@ -73,7 +119,7 @@ it.each([
  ['COMMON_ONLY_VALIDATED',false,'全共配方案已复核，无专车道路调用'],
 ])('深度结果按真实%s状态描述最终道路证明',async(mode,fresh,label)=>{
  const initial=mock.api.getMockImplementation()!;
- const shown={...plan,result:{...result,algorithm:{...result.algorithm,final_validation:{mode,fresh,selected_segments:0}}}};
+ const shown={...plan,result:{...result,algorithm:{...result.algorithm,distinct_route_count:10000,total_wait_elapsed_seconds:123.5,final_validation:{mode,fresh,selected_segments:0}}}};
  mock.api.mockImplementation(async(path:string,method='GET',body?:unknown)=>{
   if(path.includes('/plans?'))return {items:[shown],total:1,head_version:1};
   if(path==='/planning/plans/P')return shown;
@@ -83,6 +129,8 @@ it.each([
  expect(await screen.findByText(label)).toBeTruthy();
  expect(screen.getByText(/日常深度规划 · 多轮搜索与联合选优/)).toBeTruthy();
  expect(screen.getByText(/未证明全局最低/)).toBeTruthy();
+ expect(screen.getByText(/本次任务用时 2分3秒/)).toBeTruthy();
+ expect(screen.queryByText(/10000 条候选线路/)).toBeNull();
  if(!fresh)expect(screen.queryByText('已按本轮高德道路复核并重新报价')).toBeNull();
 });
 
@@ -95,10 +143,10 @@ it('人工核算任务保留原说明，不显示自动多轮进度',async()=>{
  expect(screen.getByText(/优化计算上限 45 秒；总等待上限 165 秒（含排队、道路及复核）/)).toBeTruthy();
 });
 
-it('外部算路关闭时明确只使用已有参考，不宣传实时道路复核',async()=>{
+it('外部算路关闭时说明新专车道路无法核算',async()=>{
  const initial=mock.api.getMockImplementation()!;
  mock.api.mockImplementation(async(path:string,method='GET',body?:unknown)=>path==='/planning/capabilities'?{...cap,live_calls_enabled:false}:initial(path,method,body));
  render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
- expect(await screen.findByText('当前入口未开放外部算路，将使用已有实路参考复核；不会标记为实时道路结果。')).toBeTruthy();
- expect(screen.queryByText(/自动调用高德复核选中道路并重新报价/)).toBeNull();
+ expect(await screen.findByText('当前入口未开放高德算路，无法核算新专车道路。')).toBeTruthy();
+ expect(screen.queryByText(/搜索、核算和复核均使用本轮高德回执/)).toBeNull();
 });

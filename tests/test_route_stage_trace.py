@@ -31,6 +31,7 @@ def test_native_pre_retention_identity_is_observed_even_when_first_pool_is_full(
     model.manager=SimpleNamespace(IndexToNode=lambda node:node)
     model.task_nodes={1:'a'};model.ids=['a']
     model.candidate_stream_observer=None;model.retention=None
+    model.candidate_limit=10000
     model.candidate_specs={(str(i),('other',)):{} for i in range(10000)}
     result=model._collect(lambda node:node+1)
     assert result==[{'vehicle_id':'V0','task_ids':['a']}]

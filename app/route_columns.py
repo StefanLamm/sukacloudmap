@@ -9,6 +9,7 @@ it never proves that ungenerated routes or delivery combinations are optimal.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterator
 from copy import deepcopy
 from decimal import Decimal
 from itertools import chain
@@ -408,7 +409,10 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
                    'invalid_source_plans': 0, 'invalid_recipes': 0, 'unknown_metric_recipes': 0,
                    'candidate_pool_truncated': False, 'fallback': False}
     columns = {vid: {} for vid, vehicle in data['vehicles'].items() if vehicle['available']}
-    orders, sources = {}, []
+    sources = []
+    order_limit = None if getattr(road, 'deadline_limited_candidates', False) else MAX_ORDERS
+    diagnostics['unique_orders'] = 0
+    diagnostics['order_limit'] = order_limit
     column_count = 0
     stop_reason = 'SEARCH_COMPLETED'
 
@@ -455,6 +459,9 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
     # set. This gate has no network side effects and verifies current metrics.
     def rows(value):
         return value if isinstance(value, (list, tuple)) else []
+
+    def candidate_rows(value):
+        return value if isinstance(value, Iterator) else rows(value)
 
     def source_fee(result):
         try:
@@ -589,28 +596,38 @@ def select_portfolio(body, road, results, *, seconds, cancelled=lambda: False, p
         control()
         if stage_trace is not None:
             mark('POOL_ORDER')
-        for result in [*sources, *recipe_sources, {'candidate_routes': candidate_recipes}]:
-            algorithm = result.get('algorithm')
-            extra = algorithm.get('_portfolio_recipes') if isinstance(algorithm, dict) else None
-            for row in chain(rows(result.get('routes')), rows(result.get('candidate_routes')), rows(extra)):
-                if monotonic() >= column_deadline:
-                    diagnostics['candidate_pool_truncated'] = True
-                    break
-                if cancelled():
-                    raise StopSearch('CANCELLED')
-                ids = _order(data, row.get('task_ids') if isinstance(row, dict) else None)
-                if ids is None:
-                    diagnostics['invalid_recipes'] += 1
-                    continue
-                if len(orders) >= MAX_ORDERS and ids not in orders:
+        def unique_orders():
+            seen = set()
+            for result in [*sources, *recipe_sources, {'candidate_routes': candidate_recipes}]:
+                algorithm = result.get('algorithm')
+                extra = algorithm.get('_portfolio_recipes') if isinstance(algorithm, dict) else None
+                for row in chain(rows(result.get('routes')), candidate_rows(result.get('candidate_routes')), rows(extra)):
+                    if cancelled():
+                        raise StopSearch('CANCELLED')
+                    if monotonic() >= column_deadline:
+                        diagnostics['candidate_pool_truncated'] = True
+                        return
+                    ids = _order(data, row.get('task_ids') if isinstance(row, dict) else None)
+                    if ids is None:
+                        diagnostics['invalid_recipes'] += 1
+                        continue
+                    if ids not in seen and order_limit is not None and len(seen) >= order_limit:
+                        if stage_trace is not None:
+                            trace_route('POOL_ORDER', row, status='REJECTED', reason='MAX_ORDERS')
+                        diagnostics['candidate_pool_truncated'] = True
+                        break
                     if stage_trace is not None:
-                        trace_route('POOL_ORDER', row, status='REJECTED', reason='MAX_ORDERS')
-                    diagnostics['candidate_pool_truncated'] = True
-                    break
-                orders.setdefault(ids, None)
-                if stage_trace is not None:
-                    trace_route('POOL_ORDER', row, status='ADMITTED')
-        diagnostics['unique_orders'] = len(orders)
+                        trace_route('POOL_ORDER', row, status='ADMITTED')
+                    if ids not in seen:
+                        seen.add(ids)
+                        diagnostics['unique_orders'] += 1
+                        yield ids
+
+        # Price daily orders as they arrive. Collecting every identity before
+        # pricing could consume the whole column allowance on a long stream.
+        orders = unique_orders()
+        if order_limit is not None:
+            orders = list(orders)
         report('REPRICE_COLUMNS')
         # Price warehouse/capacity-equivalent compact proposals once. The metric
         # evaluator uses a vehicle-independent known_segment(origin, destination)

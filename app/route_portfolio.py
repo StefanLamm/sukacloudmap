@@ -58,6 +58,7 @@ def _native(search,seconds,strategy,first,seed,penalty_multiplier=1):
         initial_routes=search.best_routes,vehicle_independent=True,strategy=strategy,
         first_strategy=first,common_penalty_multiplier=penalty_multiplier,on_batch=batch,
         candidate_retention=getattr(getattr(search.road,'deep_experiments',None),'native_candidate_retention','first'),
+        deadline_limited_candidates=getattr(search.road, 'deadline_limited_candidates', False),
         candidate_stream_observer=getattr(search.road,'native_candidate_stream_observer',None),
         **({'stage_trace':search.road.route_stage_trace} if getattr(search.road,'route_stage_trace',None) is not None else {}),
         **assignment_options)

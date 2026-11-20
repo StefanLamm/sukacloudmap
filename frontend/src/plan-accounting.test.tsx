@@ -58,24 +58,19 @@ it.each([{seconds:2254,minutes:'37.6'},{seconds:5618,minutes:'93.6'},{seconds:0,
  expect(screen.getByText('核算前 ¥120.00 → 最新报价 ¥100.00')).toBeTruthy();
 });
 
-it.each([{kind:'MANUAL',refresh:true},{kind:'MANUAL',refresh:false}])('真实驾车模式$kind按选择提交refresh=$refresh，保持人工payload',async({kind,refresh})=>{
+it('真实驾车人工核算使用本轮高德道路并保留指定顺序',async()=>{
  const original=mock.api.getMockImplementation()!;
  mock.api.mockImplementation(async(path:string,method='GET')=>path==='/planning/capabilities'?{road_source:'LIVE',route_mode:'DRIVING',live_calls_enabled:true,truck_key_configured:true,max_calls:null,qps:3}:original(path,method));
  render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
  await screen.findByRole('heading',{name:'方案 V1'});
-  await screen.findByText('自动调用高德复核选中道路并重新报价；按每秒限流排队，道路等待计入总等待上限，支持取消。');
- if(kind==='MANUAL'){
-  fireEvent.click(screen.getByRole('button',{name:'人工调整'}));
-  const select=screen.getByLabelText('道路核算方式') as HTMLSelectElement;
-  expect(select.value).toBe('refresh');
-  fireEvent.change(select,{target:{value:refresh?'refresh':'cached'}});
-  fireEvent.click(screen.getByRole('button',{name:'开始核算'}));
- }
+ await screen.findByText('搜索、核算和复核均使用本轮高德回执。道路等待计入总等待上限。');
+ fireEvent.click(screen.getByRole('button',{name:'人工调整'}));
+ expect(screen.queryByLabelText('道路核算方式')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'开始核算'}));
  await waitFor(()=>expect(mock.api.mock.calls.some(c=>c[0]==='/planning/jobs'&&c[1]==='POST')).toBe(true));
  const payload=mock.api.mock.calls.find(c=>c[0]==='/planning/jobs'&&c[1]==='POST')![2];
- expect(payload.kind).toBe(kind);expect(payload.refresh_roads).toBe(refresh);expect(payload.call_limit).toBeNull();
- if(kind==='MANUAL')expect(payload.draft.routes).toEqual([{vehicle_id:'V',task_ids:['A','B']}]);
- else expect(payload).not.toHaveProperty('draft');
+ expect(payload.kind).toBe('MANUAL');expect(payload).not.toHaveProperty('refresh_roads');expect(payload.call_limit).toBeNull();
+ expect(payload.draft.routes).toEqual([{vehicle_id:'V',task_ids:['A','B']}]);
 });
 
 const unsupported=[{route_mode:'TRUCK',road_source:'LIVE',live:true},{route_mode:'TRUCK',road_source:'LIVE',live:false},
@@ -90,8 +85,7 @@ it.each(unsupported.flatMap(cap=>['OPTIMIZE','MANUAL'].map(kind=>({...cap,kind})
  expect(screen.queryByRole('option',{name:'核算时刷新所选道路'})).toBeNull();
  if(kind==='MANUAL'){
   fireEvent.click(screen.getByRole('button',{name:'人工调整'}));
-  const select=screen.getByLabelText('道路核算方式') as HTMLSelectElement;
-  expect(select.disabled).toBe(true);expect(select.value).toBe('cached');
+  expect(screen.queryByLabelText('道路核算方式')).toBeNull();
   expect(screen.queryByRole('option',{name:'刷新所选道路并重新核算'})).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'开始核算'}));
  }else fireEvent.click(screen.getByRole('button',{name:'开始规划'}));

@@ -410,6 +410,22 @@ def test_all_completed_round_recipes_precede_general_pool_and_survive_solver_fai
     assert check_result(normalize(body), result)['valid']
 
 
+def test_deadline_limited_order_stream_prices_during_admission(monkeypatch):
+    body, road = problem()
+    road.deadline_limited_candidates = True
+    monkeypatch.setattr(columns, 'MAX_ORDERS', 1)
+    def stream():
+        yield proposals(['0', '1'])[0]
+        assert road.metric_reads > 0
+        yield proposals(['2', '3'])[0]
+    result = columns.select_portfolio(body, road, [plan(body, road)], seconds=3,
+                                      candidate_recipes=stream())
+    assert result['total_fee'] == '22.00'
+    assert check_result(normalize(body), result)['valid']
+    assert result['algorithm']['unique_orders'] == 2
+    assert result['algorithm']['order_limit'] is None
+
+
 def test_complete_compact_recipe_with_unknown_edge_never_fetches_it():
     body, road = problem(n=2, cars=1)
     source = plan(body, road)

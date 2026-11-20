@@ -9,6 +9,7 @@ from collections import OrderedDict
 import json
 import math
 import time
+import zlib
 
 import httpx
 
@@ -67,9 +68,12 @@ class FixtureRoad:
 
 class TruckRoad:
     def __init__(self, settings, call_limit=None, cache_get=None, cache_put=None, transport=None, cancelled=lambda: False, limiter=None,
-                 *, production_planning=False, wall_deadline=None, network_control=None, timer=None):
+                 *, production_planning=False, wall_deadline=None, network_control=None, timer=None,
+                 fresh_only=False):
         self.settings = settings
         self.production_planning = bool(production_planning)
+        self.fresh_only = fresh_only
+        self.batch_started_at = int(time.time()) if fresh_only else None
         self.ignored_call_limit_assignments = 0
         self._call_limit = None
         self.call_limit = call_limit
@@ -108,7 +112,9 @@ class TruckRoad:
             raise RoadError('WALL_BUDGET', '任务总等待已达到截止时间，未继续请求道路')
         if getattr(self, 'production_planning', False) and not self.settings.road_calls_enabled:
             self.network_stop_reason = 'LIVE_CALLS_DISABLED'
-            raise RoadError('LIVE_CALLS_DISABLED', '当前入口明确关闭外部算路，已有缓存仍可使用')
+            message = ('当前入口明确关闭外部算路，无法获取本轮专车道路' if self.fresh_only
+                       else '当前入口明确关闭外部算路，已有缓存仍可使用')
+            raise RoadError('LIVE_CALLS_DISABLED', message)
         if self.network_control is not None:
             self.network_control()
 
@@ -137,6 +143,8 @@ class TruckRoad:
     def stats(self):
         return {'source': 'LIVE', 'calls': self.calls, 'cache_hits': self.hits, 'failures': self.failures,
                 'call_limit': self.call_limit,
+                 'measurement_policy': 'CURRENT_JOB_PROVIDER_ONLY' if self.fresh_only else 'REFERENCE_CACHE_ALLOWED',
+                 'batch_started_at': self.batch_started_at,
                 'total_call_policy': 'PRODUCTION_UNLIMITED' if getattr(self, 'production_planning', False) else 'EXPLICIT_RESEARCH_ALLOWANCE',
                 'live_calls_enabled': bool(getattr(self.settings, 'road_calls_enabled', False)),
                 'ignored_call_limit_assignments': getattr(self, 'ignored_call_limit_assignments', 0),
@@ -160,7 +168,9 @@ class TruckRoad:
         if not self.settings.amap_web_service_key: raise RoadError('TRUCK_KEY_MISSING', '未配置真实货车服务，共配保留，专车待道路验证')
         request = road_request(vehicle, origin, destination, departure, 'LIVE')
         key = content_hash(request)
-        cached = self.local.get(key) or self.cache_get(key)
+        cached = self.local.get(key)
+        if cached is None and not self.fresh_only:
+            cached = self.cache_get(key)
         if cached is not None:
             self.hits += 1; return deepcopy(cached)
         if self.call_limit is not None and self.call_limit <= self.calls: raise RoadError('ROAD_CALL_BUDGET', '本次货车调用额度已用完，保留已找到的完整方案')
@@ -223,7 +233,10 @@ class TruckRoad:
                 item = evidence(request, math.ceil(meters), math.ceil(seconds), 'LIVE', False, polyline, restriction,
                                 time_status='TIME_UNVERIFIED', received_at=int(time.time()),
                                 notice='该接口未证明指定发车时刻及车牌颜色约束，结果仅供草稿复核')
-                self.local[key] = item; self.cache_put(key, item); return deepcopy(item)
+                self.local[key] = item
+                if not self.fresh_only:
+                    self.cache_put(key, item)
+                return deepcopy(item)
             except (httpx.TimeoutException, httpx.NetworkError):
                 self.check_network_control()
                 if attempt == 0:
@@ -251,6 +264,9 @@ class DrivingRoad(TruckRoad):
         super().__init__(*args,**kwargs)
         self.graph=None;self._metric_keys={};self.metric_hints={};self.historical_hits=0
         self.local=OrderedDict();self._freshened_keys=set();self._fresh_bound_keys=set()
+        self._batch_receipts = {}
+        if self.fresh_only:
+            return
         path=getattr(self.settings,'amap_reference_graph_path',None)
         if self.settings.environment=='test':
             # Unit tests must not even inspect a default business graph. Only
@@ -277,6 +293,8 @@ class DrivingRoad(TruckRoad):
             if key is None:
                 key=content_hash(self.reference_request(origin,destination));self._metric_keys[coords]=key
             local=self.metric_hints.get(key)
+            if self.fresh_only:
+                return local
             stored=self.graph.get_metrics(key) if self.graph is not None else None
             return stored if stored is not None and (local is None or stored['received_at']>local['received_at']) else local
         except (KeyError,TypeError,ValueError):return None
@@ -335,6 +353,8 @@ class DrivingRoad(TruckRoad):
         except (KeyError,ValueError,TypeError):return False
 
     def seed_reference_cache(self, items):
+        if self.fresh_only:
+            return 0
         self.references=getattr(self,'references',{})
         self.route_seed_samples=getattr(self,'route_seed_samples',{})
         for item in items:
@@ -360,9 +380,15 @@ class DrivingRoad(TruckRoad):
             except (KeyError,TypeError,ValueError):continue
         return len(self.references)
 
+    def batch_receipt(self, provider_key):
+        """Return the original provider measurement for this job and direction."""
+        packed = self._batch_receipts.get(provider_key)
+        return json.loads(zlib.decompress(packed)) if packed is not None else None
+
     def stats(self):
         return {**super().stats(), 'source': 'DRIVING', 'endpoint': DRIVING_ENDPOINT,
                 'time_semantics': 'CURRENT_TRAFFIC_REFERENCE',
+                'job_measured_directions': len(self._batch_receipts),
                 'provider_cache_hits':getattr(self,'provider_hits',0),'provider_seeded_edges':len(getattr(self,'references',{})),
                 'historical_route_hints':len(getattr(self,'route_seed_samples',{})),
                 'historical_segment_hits':self.historical_hits,'network_wait_seconds':round(self.io_seconds,4),
@@ -390,9 +416,24 @@ class DrivingRoad(TruckRoad):
                            coordinate_conversion='coordtransform-2.1.2-reference')
         key = content_hash(request)
         provider_request=self.reference_request(origin,destination);provider_key=content_hash(provider_request)
-        refresh=self.force_refresh and provider_key not in self._freshened_keys
+        if self.fresh_only and provider_key in self._batch_receipts:
+            item = self.local.get(key)
+            if item is None:
+                source = self.batch_receipt(provider_key)
+                item = self.reference_item(request, source)
+                item.update(provider_cache_key=provider_key, provider_evidence_hash=source['evidence_hash'],
+                            provider_received_at=source['received_at'])
+                item['evidence_hash'] = content_hash({k:v for k,v in item.items() if k!='evidence_hash'})
+                self.local[key] = item
+                self.trim_geometry(self.local)
+            else:
+                self.local.move_to_end(key)
+            self.hits += 1
+            self.provider_hits = getattr(self, 'provider_hits', 0) + 1
+            return deepcopy(item)
+        refresh=self.fresh_only or (self.force_refresh and provider_key not in self._freshened_keys)
         cached=self.local.get(key) if not refresh and (not self.force_refresh or key in self._fresh_bound_keys) else None
-        if cached is None and not self.force_refresh:cached=self.cached_item(key)
+        if cached is None and not refresh and not self.force_refresh:cached=self.cached_item(key)
         cached_valid=(self.valid_reference(cached,allow_expired=self.allow_historical,allow_historical_status=self.allow_historical)
                       and cached['request']==request and int(time.time())-cached['received_at']<7*86400)
         if cached_valid and (int(time.time())-cached['received_at']<3600 or cached['time_status']=='HISTORICAL_TRAFFIC_REFERENCE'):
@@ -408,7 +449,7 @@ class DrivingRoad(TruckRoad):
                 threshold=self.metric_hints.get(provider_key,{}).get('received_at',int(time.time()))
                 if not isinstance(provider,dict) or provider.get('received_at',-1)<threshold:provider=None
         if not self.usable_provider(provider,provider_request) and cached_valid and not self.force_refresh:provider=cached
-        if not self.usable_provider(provider,provider_request) and self.graph is not None and not self.force_refresh:
+        if not self.usable_provider(provider,provider_request) and self.graph is not None and not refresh and not self.force_refresh:
             provider=self.graph.get_recent(provider_key) or (self.graph.get_recent(provider_key,ttl_seconds=7*86400) if self.allow_historical else None)
         usable=self.usable_provider(provider,provider_request)
         historical=usable and int(time.time())-provider['received_at']>=3600
@@ -475,6 +516,12 @@ class DrivingRoad(TruckRoad):
                 item = evidence(request, math.ceil(meters), math.ceil(seconds), 'DRIVING', False, polyline,
                                 'TRUCK_NOT_VERIFIED', time_status='CURRENT_TRAFFIC_REFERENCE', received_at=int(time.time()),
                                 notice='普通驾车参考；未核验货车限高、限重、限行及计划发车时刻，需人工核对')
+                if self.fresh_only:
+                    self._batch_receipts[provider_key] = zlib.compress(json.dumps(item, separators=(',', ':')).encode(), level=1)
+                    self.remember_metrics(provider_key, item)
+                    self.local[key] = item
+                    self.trim_geometry(self.local)
+                    return deepcopy(item)
                 self.local[key] = item; self.cache_put(key, item)
                 self._freshened_keys.add(provider_key)
                 self._fresh_bound_keys.add(key)

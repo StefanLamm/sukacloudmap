@@ -79,12 +79,13 @@ class _MeasuredModel:
     def __init__(self, data, edge_lookup, control, seed, *, vehicle_independent,
                  strategy, first_strategy, region_surrogate='PER_STORE', common_penalty_multiplier=Fraction(1),
                  candidate_retention='first', candidate_stream_observer=None,
-                 stage_trace=None, trace_scope=None):
+                 stage_trace=None, trace_scope=None, deadline_limited_candidates=False):
         pywrapcp, enums = _ortools_api()
         self.api, self.enums = pywrapcp, enums
         self.data, self.control = data, control
         self.strategy, self.first_strategy = strategy, first_strategy
         self.stage_trace, self.trace_scope = stage_trace, trace_scope
+        self.candidate_limit = None if deadline_limited_candidates else 10000
         self.candidate_specs = {}; self.solution_count = 0; self.native_slices = 0
         self.retention = None
         if candidate_retention != 'first':
@@ -332,7 +333,7 @@ class _MeasuredModel:
             # No network or quotation runs inside a native solver callback.
             self.solution_count += 1
             if (self.retention is None and self.candidate_stream_observer is None and self.stage_trace is None
-                    and len(self.candidate_specs) >= 10000):
+                    and self.candidate_limit is not None and len(self.candidate_specs) >= self.candidate_limit):
                 return
             self._collect(lambda index: self.routing.NextVar(index).Value())
         self.callbacks.append(solution_callback)
@@ -371,7 +372,7 @@ class _MeasuredModel:
                     self.candidate_stream_observer(row)
                 if self.retention is not None:
                     self.retention.observe(row)
-                elif key in self.candidate_specs or len(self.candidate_specs) < 10000:
+                elif self.candidate_limit is None or len(self.candidate_specs) < self.candidate_limit:
                     self.candidate_specs.setdefault(key, row)
                 specs.append(row)
         return specs
@@ -416,7 +417,7 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                                 strategy='GUIDED_LOCAL_SEARCH', first_strategy='PARALLEL_CHEAPEST_INSERTION',
                                 region_surrogate='PER_STORE', common_penalty_multiplier=1, on_batch=None,
                                 candidate_retention='first', candidate_stream_observer=None,
-                                stage_trace=None,
+                                stage_trace=None, deadline_limited_candidates=False,
                                 complete_assignment_pricing=False, on_assignment=None):
     """Return route *specifications* and diagnostics; specs carry no quoted fee.
 
@@ -460,6 +461,7 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
         stage_trace.mark('NATIVE_ASSIGNMENT',status='ENTERED' if assignment_enabled else 'SKIPPED',
             reason=None if assignment_enabled else 'SWITCH_DISABLED' if not complete_assignment_pricing else 'NO_HOST_CALLBACK',scope=trace_scope)
     diagnostics['candidate_retention_policy'] = candidate_retention
+    diagnostics['candidate_pool_limit'] = None if deadline_limited_candidates else 10000
     model = None; stop = 'SEARCH_COMPLETED'; best_specs = []
     try:
         control()
@@ -467,7 +469,8 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                                strategy=strategy, first_strategy=first_strategy, region_surrogate=region_surrogate,
                                common_penalty_multiplier=factor, candidate_retention=candidate_retention,
                                candidate_stream_observer=candidate_stream_observer,
-                               stage_trace=stage_trace, trace_scope=trace_scope)
+                               stage_trace=stage_trace, trace_scope=trace_scope,
+                               deadline_limited_candidates=deadline_limited_candidates)
         remaining = deadline - monotonic()
         assignment = model.warm_start(initial_routes, remaining) if initial_routes else None
         emitted = set()
@@ -527,7 +530,9 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
                             stage_trace.route('NATIVE_RETAINED', row, status='TO_PRICING_BATCH', scope=trace_scope)
                     on_batch(list(ordered.values()))
                     emitted.update(ordered)
-                    emitted.intersection_update(set(model.candidate_specs) | {(r['vehicle_id'], tuple(r['task_ids'])) for r in best_specs})
+                    if model.retention is not None:
+                        emitted.intersection_update(set(model.candidate_specs) |
+                            {(r['vehicle_id'], tuple(r['task_ids'])) for r in best_specs})
             control()
             if solution is None or strategy == 'GREEDY_DESCENT':
                 break
@@ -637,6 +642,7 @@ def optimize_ortools(body, road, budget_seconds=15, seed=0, cancelled=lambda: Fa
                     strategy=strategy, first_strategy=first_strategy, region_surrogate=region_surrogate,
                     common_penalty_multiplier=factor, on_batch=batch,
                     candidate_retention=getattr(getattr(road, 'deep_experiments', None), 'native_candidate_retention', 'first'),
+                    deadline_limited_candidates=getattr(road, 'deadline_limited_candidates', False),
                     candidate_stream_observer=getattr(road, 'native_candidate_stream_observer', None),
                     **({'stage_trace': road.route_stage_trace} if getattr(road, 'route_stage_trace', None) is not None else {}),
                     **assignment_options)
