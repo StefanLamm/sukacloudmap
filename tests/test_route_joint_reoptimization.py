@@ -239,14 +239,18 @@ def test_guarded_live_adapter_has_zero_new_calls_and_restores_call_limit():
     assert check_result(search.data, search.best)['valid']
 
 
-def test_large_mandatory_neighborhood_passes_complete_thawed_scope_to_native(monkeypatch):
+@pytest.mark.parametrize('deadline_limited', [False, True])
+def test_large_mandatory_neighborhood_passes_complete_thawed_scope_to_native(monkeypatch, deadline_limited):
     body, road = problem(n=9, cars=3, common=None, capacity=9)
+    if deadline_limited:
+        road.deadline_limited_candidates = True
     for (origin, _), metric in road.matrix.items():
         metric['meters'] = 1000 if origin != 'W' else 10000
     search, initial = prepared(body, road, [('V0', ['0', '1', '2', '3']), ('V1', ['4', '5', '6', '7', '8'])])
     seen = []
-    def native(data, lookup, seconds, seed, cancelled, *, initial_routes, vehicle_independent, on_batch):
-        seen.append((data, initial_routes))
+    def native(data, lookup, seconds, seed, cancelled, *, initial_routes, vehicle_independent, on_batch,
+               deadline_limited_candidates):
+        seen.append((data, initial_routes, deadline_limited_candidates))
         # The caller owns actual pricing/selection. A native proposal carries
         # identities/order only and no authoritative amount.
         rows = [{'vehicle_id': 'V2', 'task_ids': [str(i) for i in range(9)]}]
@@ -255,6 +259,7 @@ def test_large_mandatory_neighborhood_passes_complete_thawed_scope_to_native(mon
     monkeypatch.setattr('app.route_ortools.generate_ortools_candidates', native)
     details = reoptimize_joint_routes(search, seconds=2, max_neighborhoods=1)
     assert seen and len(seen[0][0]['tasks']) == 9 and len(seen[0][1]) == 2
+    assert seen[0][2] is deadline_limited
     assert search.best['total_fee'] == '18.00' < initial['total_fee'] == '27.00'
     assert len(search.best['routes']) == 1
     assert details['neighborhoods'][0]['native_diagnostics']['stop_reason'] == 'SEARCH_COMPLETED'

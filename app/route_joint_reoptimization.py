@@ -554,7 +554,9 @@ def reoptimize_joint_routes(search, *, seconds=None, max_routes=4, max_neighborh
                     specs, row['native_diagnostics'] = generate_ortools_candidates(
                         data, lambda vehicle, a, b: _known(road, a, b), local.remaining() * (.45 if scalable else .55),
                         local.seed, search.cancelled, initial_routes=local.best_routes,
-                        vehicle_independent=True, on_batch=batch, **native_options)
+                        vehicle_independent=True, on_batch=batch,
+                        deadline_limited_candidates=getattr(road, 'deadline_limited_candidates', False),
+                        **native_options)
                     if local.remaining() > .075:
                         batch(specs)
                 if large and local.remaining() > .1:
