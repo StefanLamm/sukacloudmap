@@ -88,7 +88,7 @@ class _MeasuredModel:
         self.candidate_limit = None if deadline_limited_candidates else 10000
         self.candidate_specs = {}; self.solution_count = 0; self.native_slices = 0
         self.retention = None
-        if candidate_retention != 'first':
+        if self.candidate_limit is not None and candidate_retention != 'first':
             from app.route_retention import CandidateRetention
             self.retention = CandidateRetention(candidate_retention, data=data, control=control)
         self.candidate_stream_observer = candidate_stream_observer
@@ -460,7 +460,7 @@ def generate_ortools_candidates(data, edge_lookup, time_limit=5, seed=0, cancell
     if stage_trace is not None:
         stage_trace.mark('NATIVE_ASSIGNMENT',status='ENTERED' if assignment_enabled else 'SKIPPED',
             reason=None if assignment_enabled else 'SWITCH_DISABLED' if not complete_assignment_pricing else 'NO_HOST_CALLBACK',scope=trace_scope)
-    diagnostics['candidate_retention_policy'] = candidate_retention
+    diagnostics['candidate_retention_policy'] = 'deadline_dedup' if deadline_limited_candidates else candidate_retention
     diagnostics['candidate_pool_limit'] = None if deadline_limited_candidates else 10000
     model = None; stop = 'SEARCH_COMPLETED'; best_specs = []
     try:

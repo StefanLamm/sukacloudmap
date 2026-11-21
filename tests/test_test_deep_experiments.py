@@ -67,14 +67,14 @@ def test_real_daily_job_passes_only_explicit_override_and_records_source(basis, 
     seen = []
     app.state.settings.planning_deep_experiments = deepcopy(FLAGS)
     def workflow(body, road, budget, seed, cancelled, *, initial_result=None, progress=None,
-                 wall_budget_seconds=None, experiments):
-        seen.append(deepcopy(experiments))
+                 wall_budget_seconds=None, experiments, deadline_limited_candidates):
+        seen.append((deepcopy(experiments), deadline_limited_candidates))
         return complete_common_result(body)
     monkeypatch.setattr(service, 'optimize_deep', workflow)
     client, *_ = basis
     done = waited(client, new_job(client, frozen(basis), budget_seconds=3))
     assert done['status'] == 'COMPLETED', done
-    assert seen == [FLAGS] and app.state.settings.planning_deep_experiments == FLAGS
+    assert seen == [(FLAGS, True)] and app.state.settings.planning_deep_experiments == FLAGS
     algorithm = done['summary']['algorithm']
     assert algorithm['test_experiments_override'] == FLAGS
     assert algorithm['source_provenance']['app_source_hash']

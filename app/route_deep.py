@@ -397,7 +397,7 @@ def _post_selection_small_groups(data, road, incumbent, budget, seed, cancelled)
 
 def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: False,
                   *, initial_result=None, progress=None, experiments=None,
-                  wall_budget_seconds=None):
+                  wall_budget_seconds=None, deadline_limited_candidates=None):
     """Saveable results are complete and independently verified, never estimates.
 
     The compute allowance covers all serial search/selection phases. Provider
@@ -423,10 +423,11 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     observed = OrderedDict()
     observation_count = dropped_observations = 0
     duplicate_observations = 0
-    deadline_limited_candidates = experiments is None
+    if deadline_limited_candidates is None:
+        deadline_limited_candidates = experiments is None
     max_recipes = None if deadline_limited_candidates else MAX_OBSERVED_RECIPES
     retention = None
-    if switches.candidate_retention != 'first':
+    if max_recipes is not None and switches.candidate_retention != 'first':
         from app.route_retention import CandidateRetention
         retention = CandidateRetention(switches.candidate_retention, max_recipes, data=data,
                                        control=budget.control)

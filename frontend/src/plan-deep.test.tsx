@@ -112,6 +112,47 @@ it('从任务受理时计时，轮询暂停或阶段变化时继续前进，完�
  }
 });
 
+it('迟到的任务列表不会清除新提交的任务，轮询超时后仍继续计时并查询结果', async () => {
+ vi.useFakeTimers();
+ const initial = mock.api.getMockImplementation()!;
+ const started = {
+  id: 'NEW', kind: 'OPTIMIZE', status: 'QUEUED', cancel_requested: false,
+  plan_id: null, error_message: null, created_at: '2026-11-13T08:00:00+08:00',
+  server_now: '2026-11-13T08:00:00+08:00',
+ };
+ let finishList: ((value: {items: typeof started[]}) => void) | undefined;
+ let polls = 0;
+ mock.api.mockImplementation(async (path: string, method = 'GET', body?: unknown, signal?: AbortSignal) => {
+  if (path.startsWith('/planning/days/') && path.includes('/jobs')) return new Promise(resolve => {finishList = resolve;});
+  if (path === '/planning/jobs' && method === 'POST') return started;
+  if (path === '/planning/jobs/NEW') {
+   if (++polls === 1) return new Promise((_, reject) => {
+    signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {once: true});
+   });
+   return {...started, status: 'COMPLETED'};
+  }
+  return initial(path, method, body);
+ });
+ const view = render(<PlanPanel day={day} demand={demand} notify={()=>{}}/>);
+ try {
+  await act(async () => {});
+  await act(async () => fireEvent.click(screen.getByRole('button', {name: '开始规划'})));
+  expect(screen.getByRole('timer').textContent).toBe('已用 0秒');
+  await act(async () => finishList!({items: []}));
+  expect(screen.getByText('任务等待执行')).toBeTruthy();
+  await act(async () => {await vi.advanceTimersByTimeAsync(10500);});
+  expect(polls).toBe(1);
+  expect(screen.getByRole('timer').textContent).toBe('已用 10秒');
+  await act(async () => {await vi.advanceTimersByTimeAsync(500);});
+  expect(polls).toBe(2);
+  expect(screen.queryByRole('timer')).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+ } finally {
+  view.unmount();
+  vi.useRealTimers();
+ }
+});
+
 it.each([
  ['FRESH_DRIVING_VALIDATED',true,'已按本轮高德道路复核并重新报价'],
  ['OFFLINE_REFERENCE_VALIDATED',false,'已用已有道路参考复核，未实时更新道路'],

@@ -99,24 +99,50 @@ export function PlanPanel({day,groupId,demand,notify}:{day:string;groupId?:strin
   async function loadVersions(start=offset,open=false,size=historySize){const initialSelection=selectionGeneration.current;const request=++historyGeneration.current;const r=await api<{items:PlanMeta[];total:number;head_version:number}>(`/planning/days/${day}/plans?offset=${start}&limit=${size}${groupId?'&group_id='+encodeURIComponent(groupId):''}`);if(!alive.current||request!==historyGeneration.current)return;setVersions(r.items);setVersionTotal(r.total);setHead(r.head_version);if(open&&r.items[0]&&initialSelection===selectionGeneration.current&&!dirtyRef.current)await openPlan(r.items[0].id,true,initialSelection);}
   async function openPlan(id:string,force=false,initialSelection?:number){if(initialSelection!==undefined&&(initialSelection!==selectionGeneration.current||dirtyRef.current))return;if(!force&&dirtyRef.current&&!await confirmDiscard('当前人工选择尚未重算保存，切换版本会丢弃这些未提交选择。确定切换？'))return;const generation=initialSelection??++selectionGeneration.current;let r:Plan;try{r=await api<Plan>('/planning/plans/'+id);}catch(e){if(initialSelection!==undefined&&(!alive.current||generation!==selectionGeneration.current||dirtyRef.current))return;throw e;}if(!alive.current||generation!==selectionGeneration.current||initialSelection!==undefined&&dirtyRef.current)return;setPlan(r);setExample(null);setChoices(initialChoices(r.result));setEditing(false);setDirty(false);setPage(0);setQuery('');setResultPage(0);}
 
-  useEffect(()=>{api<typeof cap>('/planning/capabilities').then(setCap).catch(e=>setError(text(e)));loadVersions(0,true).catch(e=>setError(text(e)));api<{items:Job[]}>('/planning/days/'+day+'/jobs'+(groupId?'?group_id='+encodeURIComponent(groupId):'')).then(r=>{if(alive.current)setJob(r.items.find(j=>['QUEUED','RUNNING'].includes(j.status))??null);}).catch(e=>setError(text(e)));},[]);
-  useEffect(()=>{if(!active||!job)return;let stopped=false;let timer:number|undefined;const id=job.id;
-    async function poll(){try{const r=await api<Job>('/planning/jobs/'+id);if(stopped||!alive.current)return;
-      setJob(r);
-      if(!['QUEUED','RUNNING'].includes(r.status)){
-        if(r.error_message)setError(r.error_message);
-        if(r.plan_id){
-          setBusy(true);
-          try{
-            await openPlan(r.plan_id,true);await loadVersions(0);
-            if(alive.current){setOffset(0);notify(r.status==='CANCELLED'?'已取消，并保留停止前的结果草稿':r.kind==='MANUAL'?'核算完成，已保存新方案版本':'新方案版本已保存');}
-          }catch(e){if(alive.current)setError(text(e));}
-          finally{if(alive.current)setBusy(false);}
+  useEffect(()=>{
+    api<typeof cap>('/planning/capabilities').then(setCap).catch(e=>setError(text(e)));
+    loadVersions(0,true).catch(e=>setError(text(e)));
+    api<{items:Job[]}>('/planning/days/'+day+'/jobs'+(groupId?'?group_id='+encodeURIComponent(groupId):'')).then(r=>{
+      if(alive.current) setJob(current=>current??r.items.find(j=>['QUEUED','RUNNING'].includes(j.status))??null);
+    }).catch(e=>setError(text(e)));
+  },[]);
+  useEffect(()=>{
+    if(!active||!job)return;
+    const id=job.id;
+    let stopped=false;
+    let timer:number|undefined;
+    let timeout:number|undefined;
+    let pending:AbortController|undefined;
+    async function poll() {
+      const request = new AbortController();
+      pending = request;
+      timeout = window.setTimeout(()=>request.abort(), 10000);
+      try {
+        const r=await api<Job>('/planning/jobs/'+id,'GET',undefined,request.signal);
+        window.clearTimeout(timeout);
+        if(stopped||!alive.current)return;
+        const running=['QUEUED','RUNNING'].includes(r.status);
+        setJob(current=>running && current?.id===id && current.cancel_requested
+          ? {...r,cancel_requested:true} : r);
+        if(!running){
+          if(r.error_message)setError(r.error_message);
+          if(r.plan_id){
+            setBusy(true);
+            try{
+              await openPlan(r.plan_id,true);await loadVersions(0);
+              if(alive.current){setOffset(0);notify(r.status==='CANCELLED'?'已取消，并保留停止前的结果草稿':r.kind==='MANUAL'?'核算完成，已保存新方案版本':'新方案版本已保存');}
+            }catch(e){if(alive.current)setError(text(e));}
+            finally{if(alive.current)setBusy(false);}
+          }
+          return;
         }
-        return;
-      }
-    }catch(e){if(!stopped)setError(text(e));}if(!stopped)timer=window.setTimeout(poll,700);}
-    timer=window.setTimeout(poll,250);return()=>{stopped=true;if(timer)window.clearTimeout(timer);};},[active,job?.id]);
+      }catch(e){if(!stopped&&!request.signal.aborted)setError(text(e));}
+      finally {window.clearTimeout(timeout);pending=undefined;}
+      if(!stopped)timer=window.setTimeout(poll,700);
+    }
+    timer=window.setTimeout(poll,250);
+    return()=>{stopped=true;window.clearTimeout(timer);window.clearTimeout(timeout);pending?.abort();};
+  },[active,job?.id]);
   useEffect(()=>{const handler=(e:BeforeUnloadEvent)=>{if(dirtyRef.current){e.preventDefault();e.returnValue='';}};const leave=(e:Event)=>{if(dirtyRef.current)(e as CustomEvent<Promise<boolean>[]>).detail.push(confirmDiscard('离开会丢失尚未重算保存的人工选择。'));};window.addEventListener('beforeunload',handler);window.addEventListener('suka-before-leave',leave);return()=>{window.removeEventListener('beforeunload',handler);window.removeEventListener('suka-before-leave',leave);};},[]);
 
   async function start(kind:'OPTIMIZE'|'MANUAL'){

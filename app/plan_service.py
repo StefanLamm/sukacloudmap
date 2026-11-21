@@ -365,6 +365,7 @@ class PlanningRunner:
                     if self.settings.environment != 'test':
                         raise ApiError(409,'TEST_EXPERIMENTS_FORBIDDEN','规划实验开关仅允许隔离 test 环境。')
                     deep_options['experiments'] = dict(test_experiments)
+                    deep_options['deadline_limited_candidates'] = True
                 result = optimize_deep(body, road, payload['budget_seconds'], payload['seed'], cancelled,
                                        **deep_options)
                 if test_experiments is not None:

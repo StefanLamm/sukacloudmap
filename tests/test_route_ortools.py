@@ -183,14 +183,20 @@ def test_solver_unavailable_falls_back_to_valid_incumbent(monkeypatch):
     assert result['total_fee']=='1.00' and result['algorithm']['stop_reason']=='SOLVER_UNAVAILABLE'
 
 
-def test_raw_candidate_specs_never_expose_model_money_as_a_quote():
+@pytest.mark.parametrize('deadline_limited', [False, True])
+def test_raw_candidate_specs_never_expose_model_money_as_a_quote(deadline_limited):
     body,road,pairs=problem(n=2,cars=1)
     data=normalize(body)
     rows,diagnostics=generate_ortools_candidates(data,lambda v,a,b:road.known_segment(a,b),.15,
-                                                vehicle_independent=True,strategy='GREEDY_DESCENT')
+                                                vehicle_independent=True,strategy='GREEDY_DESCENT',
+                                                candidate_retention='diversity',
+                                                deadline_limited_candidates=deadline_limited)
     assert rows and diagnostics['quoted_fees_from_model'] is False
     assert all(set(row)=={'vehicle_id','task_ids'} for row in rows)
     assert road.evaluated==0
+    assert diagnostics['candidate_pool_limit'] == (None if deadline_limited else 10000)
+    assert diagnostics['candidate_retention_policy'] == ('deadline_dedup' if deadline_limited else 'diversity')
+    assert ('candidate_retention' in diagnostics) != deadline_limited
 
 
 def test_common_penalty_sampling_changes_specs_but_never_the_real_quote_or_input():

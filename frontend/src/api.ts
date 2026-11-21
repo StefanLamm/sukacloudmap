@@ -8,13 +8,13 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public code: string, public requestId?: string, public details?: unknown) { super(message); }
 }
 
-export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = body instanceof Blob ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/json';
   if (method !== 'GET') headers['X-CSRF-Token'] = csrfToken;
   let response: Response;
   try {
-    response = await fetch('/api' + path, {method, headers, credentials: 'same-origin', body: body instanceof Blob ? body : body === undefined ? undefined : JSON.stringify(body)});
+    response = await fetch('/api' + path, {method, headers, credentials: 'same-origin', body: body instanceof Blob ? body : body === undefined ? undefined : JSON.stringify(body), signal});
   } catch {
     throw new ApiError(0, '连接服务失败，请检查网络后重试。', 'NETWORK_ERROR');
   }

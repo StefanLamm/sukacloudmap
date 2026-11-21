@@ -526,7 +526,9 @@ def test_full_seed_fifo_preserves_complete_allocations_and_independent_useful_re
     assert road.candidate_observer is prior
 
 
-def test_daily_planning_delivers_candidate_after_first_ten_thousand(monkeypatch):
+@pytest.mark.parametrize('experiments', [None, {'candidate_retention': 'batch_dedup',
+                                               'native_candidate_retention': 'diversity'}])
+def test_daily_planning_delivers_candidate_after_first_ten_thousand(monkeypatch, experiments):
     body, road, value = split_problem()
     stub_rounds(monkeypatch, [value])
     late = {'vehicle_id': 'V0', 'task_ids': ['0', '1', '2', '3']}
@@ -538,10 +540,11 @@ def test_daily_planning_delivers_candidate_after_first_ten_thousand(monkeypatch)
     monkeypatch.setattr('app.route_deep._pre_selection_macros', collect)
     monkeypatch.setattr('app.route_deep._post_selection_small_groups',
         lambda data, road, incumbent, *args: (incumbent, {'elapsed_seconds': 0}))
-    result = optimize_deep(body, road, 20)
+    result = optimize_deep(body, road, 20, experiments=experiments, deadline_limited_candidates=True)
     assert result['total_fee'] == '13.00' and complete(normalize(body), result)
     assert recipe(result)['routes'] == [late]
     assert result['algorithm']['candidate_pool_limit'] is None
+    assert result['algorithm']['candidate_retention']['policy'] == 'deadline_dedup'
     assert result['algorithm']['distinct_route_count'] > 10000
     assert result['algorithm']['dropped_candidate_observations'] == 0
     assert not hasattr(road, 'deadline_limited_candidates')
