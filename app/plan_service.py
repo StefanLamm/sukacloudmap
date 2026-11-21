@@ -440,6 +440,11 @@ class PlanningRunner:
                                    control=publication_deadline)
                     publication_deadline()
                     current.status='CANCELLED' if stopped else 'COMPLETED'
+                    current.finished_at=now()
+                    db.flush()
+                    publication_deadline()
+                    db.commit()
+                    return
                 current.finished_at=now()
                 db.commit()
         except Exception as exc:
