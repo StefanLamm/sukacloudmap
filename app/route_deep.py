@@ -26,6 +26,7 @@ from app.route_verification import (complete, recipe, replay, result_rank,
 from app.routing_engine import StopSearch, assemble, check_result, normalize, optimize_legacy
 
 MAX_OBSERVED_RECIPES = 10000
+PYVRP_GROUP_SECONDS = 20.
 
 
 class _Budget:
@@ -407,13 +408,13 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     """
     data = normalize(body)
     budget = _Budget(road, budget_seconds, cancelled, wall_budget_seconds)
-    # Daily planning keeps diagnostics, road discovery and the existing
-    # long-budget expansion rule. The five new performance experiments are
-    # not adopted as daily defaults; explicit dictionaries isolate them for
-    # reproducible research comparisons.
+    # Daily planning uses the measured quote-group phase alongside diagnostics
+    # and road discovery. An explicit experiment configuration keeps each
+    # phase independently controllable in research comparisons.
     switches = (DeepExperiments(fragment_merging=False, complete_assignment_pricing=False,
                                joint_reoptimization=False, scalable_joint_search=False,
                                stage_budget_reservation=False, critical_edge_collection=True,
+                               pyvrp_group_generation=True,
                                generation_selection_loop=(budget.seconds >= 600 and len(data['tasks']) > 8))
                 if experiments is None else DeepExperiments.parse(experiments))
     diagnostics = SearchDiagnostics(budget, len(data['tasks'])) if switches.diagnostics else None
@@ -599,6 +600,55 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             budget.control()
             raise StopSearch(details['stop_reason'])
 
+    def run_pyvrp_group():
+        nonlocal optional_candidate_count
+        stage = 'PYVRP_GROUP_GENERATION'
+        before = best_complete or best
+        compute_started = budget.compute()
+        started = budget.elapsed()
+        compute_ceiling = budget.seconds * .92
+        remaining_wall = budget.wall_seconds - started - final_wall_reserve
+        details = {'skipped': True, 'candidate_count': 0, 'budget_seconds': PYVRP_GROUP_SECONDS}
+        try:
+            if best_complete is None:
+                details['stop_reason'] = 'NO_COMPLETE_INCUMBENT'
+                return
+            if min(compute_ceiling - compute_started, remaining_wall) < PYVRP_GROUP_SECONDS:
+                details['stop_reason'] = 'INSUFFICIENT_PHASE_BUDGET'
+                return
+
+            def phase_control():
+                budget.control()
+                search_time_guard()
+                if budget.compute() >= compute_ceiling:
+                    raise StopSearch('PYVRP_PHASE_BUDGET')
+
+            from app.route_pyvrp_tail import improve
+            emit({'stage': 'COLUMN_SELECTION', 'optimization_phase': stage,
+                  'message': '正在按相容报价组生成线路并复核整单费用'})
+            proposal, details = improve(body, road, before,
+                seconds=PYVRP_GROUP_SECONDS, seed=seed, control=phase_control, cancelled=cancelled)
+            # Commit a checked improvement to the in-memory incumbent before
+            # polling again. Worker publication still enforces the hard wall.
+            if Decimal(proposal['total_fee']) < Decimal(before['total_fee']) and complete(data, proposal):
+                keep(proposal)
+            phase_control()
+        except StopSearch as exc:
+            details = getattr(exc, 'pyvrp_tail_diagnostics', details)
+            details.update(skipped=False, stop_reason=exc.reason)
+            if exc.reason != 'PYVRP_PHASE_BUDGET':
+                raise
+        finally:
+            optional_candidate_count += details.get('candidate_count', 0)
+            after = best_complete or best
+            stages.append({'stage': stage, 'before_fee': before['total_fee'],
+                           'after_fee': after['total_fee'], 'total_fee': after['total_fee'],
+                           'fee_reduction': str(Decimal(before['total_fee']) - Decimal(after['total_fee'])),
+                           'budget_seconds': PYVRP_GROUP_SECONDS,
+                           'elapsed_seconds': round(budget.elapsed() - started, 6),
+                           'compute_seconds': round(budget.compute() - compute_started, 6),
+                           'details': details})
+
     # Each source run uses the current job's isolated road object. No shared
     # Settings or module-global algorithm functions are changed between seeds.
     road.candidate_observer = observe
@@ -783,6 +833,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
             emit({'stage': 'COLUMN_SELECTION', 'optimization_phase': 'CANDIDATE_EXPANSION',
                   'message': '正在生成并比较新的线路组合'})
             run_optional_refinement('cycles', 'CANDIDATE_EXPANSION')
+        if switches.pyvrp_group_generation:
+            run_pyvrp_group()
     except StopSearch as exc:
         stopped = exc.reason
         if trace is not None:
@@ -891,7 +943,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
         raise ApiError(422, 'DEEP_NO_FEASIBLE_PLAN', '深度规划未找到覆盖全部门店的完整可行方案，未保存新方案。')
     for stage_name, enabled in [('JOINT_REOPTIMIZATION', switches.joint_reoptimization),
                                 ('CANDIDATE_EXPANSION', switches.quote_group_rotation or switches.generation_selection_loop or switches.gain_time_allocation),
-                                ('CRITICAL_EDGE_COLLECTION', switches.critical_edge_collection)]:
+                                ('CRITICAL_EDGE_COLLECTION', switches.critical_edge_collection),
+                                ('PYVRP_GROUP_GENERATION', switches.pyvrp_group_generation)]:
         if not any(row['stage'] == stage_name for row in stages):
             stages.append({'stage':stage_name, 'elapsed_seconds':0., 'details':{
                 'skipped':True, 'stop_reason':'SWITCH_DISABLED' if not enabled else 'NOT_REACHED_' + stopped,

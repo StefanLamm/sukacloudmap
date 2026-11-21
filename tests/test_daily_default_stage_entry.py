@@ -70,7 +70,7 @@ def test_daily_default_disables_unadopted_stages_and_keeps_legacy_long_budget_lo
         'complete_assignment_pricing': False, 'fragment_merging': False,
         'joint_reoptimization': False, 'scalable_joint_search': False, 'stage_budget_reservation': False,
         'critical_edge_collection': True, 'quote_group_rotation': False, 'gain_time_allocation': False,
-        'generation_selection_loop': expect_cycles,
+        'generation_selection_loop': expect_cycles, 'pyvrp_group_generation': True,
     }
     stages = {row['stage']: row for row in result['algorithm']['stages']}
     seed = stages['CURRENT_INPUT_COLD_SEED']['details']
@@ -80,6 +80,7 @@ def test_daily_default_disables_unadopted_stages_and_keeps_legacy_long_budget_lo
     assert not stages['CRITICAL_EDGE_COLLECTION']['details']['skipped']
     assert stages['JOINT_REOPTIMIZATION']['details']['stop_reason'] == 'SWITCH_DISABLED'
     assert stages['JOINT_REOPTIMIZATION']['details']['skipped']
+    assert stages['PYVRP_GROUP_GENERATION']['details']['stop_reason'] == 'UNSUPPORTED_ROAD'
     expansion = stages['CANDIDATE_EXPANSION']['details']
     assert expansion['stop_reason'] == ('TEST_CYCLES_ENTERED' if expect_cycles else 'SWITCH_DISABLED')
     assert expansion['skipped'] is (not expect_cycles)
@@ -114,6 +115,57 @@ def test_explicit_experiment_dicts_still_isolate_components(monkeypatch, flags, 
     assert actual == observed[0]
     for key in ('complete_assignment_pricing', 'fragment_merging', 'joint_reoptimization',
                 'scalable_joint_search', 'stage_budget_reservation', 'critical_edge_collection',
-                'generation_selection_loop', 'quote_group_rotation', 'gain_time_allocation'):
+                'generation_selection_loop', 'quote_group_rotation', 'gain_time_allocation',
+                'pyvrp_group_generation'):
         assert actual[key] is flags.get(key, False)
     assert actual['diagnostics'] is True
+
+
+@pytest.mark.parametrize('budget,mode', [(15, 'skip'), (300, 'better'), (2000, 'better'),
+                                         (300, 'worse'), (300, 'cancelled'), (300, 'cancel_after_checked')])
+def test_pyvrp_group_stage_at_the_ordinary_deep_entry(monkeypatch, budget, mode):
+    body, road = problem(n=9, cars=3, capacity=9)
+    incumbent = plan(body, road, [('V0', ['0'])])
+    cheaper = plan(body, road, [('V0', ['0', '1'])])
+    assert complete(normalize(body), cheaper)
+    assert float(cheaper['total_fee']) < float(incumbent['total_fee'])
+    stub_rounds(monkeypatch, [incumbent])
+    monkeypatch.setattr('app.route_deep._pre_selection_macros',
+        lambda data, road, baseline, *args: (incumbent, {'elapsed_seconds': 0., 'candidate_count': 0}, []))
+    monkeypatch.setattr('app.route_deep._post_selection_small_groups',
+        lambda data, road, baseline, *args: (baseline, {'elapsed_seconds': 0., 'candidate_count': 0}))
+    monkeypatch.setattr('app.route_columns.select_portfolio', lambda *args, **kwargs: deepcopy(incumbent))
+    events = []
+    stopped = False
+
+    def refine(current_body, current_road, current_best, *, seconds, seed, control, cancelled):
+        nonlocal stopped
+        assert current_body is body and current_road is road and seconds == 20.
+        assert current_best['total_fee'] == incumbent['total_fee'] and seed == 42 and not cancelled()
+        control()
+        events.append('refined')
+        if mode == 'cancelled':
+            stopped = True
+            control()
+            raise AssertionError('The parent must observe cancellation.')
+        if mode == 'cancel_after_checked':
+            stopped = True
+        result = plan(body, road) if mode == 'worse' else cheaper
+        return result, {'skipped': False, 'stop_reason': 'TEST_RETURNED', 'candidate_count': 3}
+
+    monkeypatch.setattr('app.route_pyvrp_tail.improve', refine)
+    result = optimize_deep(body, road, budget, seed=42, cancelled=lambda: stopped,
+                           experiments={'pyvrp_group_generation': True})
+    stage = next(row for row in result['algorithm']['stages'] if row['stage'] == 'PYVRP_GROUP_GENERATION')
+    assert complete(normalize(body), result)
+    if mode == 'skip':
+        assert events == [] and stage['details']['stop_reason'] == 'INSUFFICIENT_PHASE_BUDGET'
+    else:
+        assert events == ['refined']
+    if mode in {'better', 'cancel_after_checked'}:
+        assert stage['after_fee'] == result['total_fee'] == cheaper['total_fee']
+        assert result['algorithm']['candidate_count'] >= 3
+    else:
+        assert stage['after_fee'] == result['total_fee'] == incumbent['total_fee']
+    if mode in {'cancelled', 'cancel_after_checked'}:
+        assert stage['details']['stop_reason'] == result['algorithm']['stop_reason'] == 'CANCELLED'

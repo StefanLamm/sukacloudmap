@@ -16,6 +16,7 @@ class DeepExperiments:
     generation_selection_loop: bool = False
     gain_time_allocation: bool = False
     critical_edge_collection: bool = False
+    pyvrp_group_generation: bool = False
 
     def __post_init__(self):
         for name in ('candidate_retention', 'native_candidate_retention'):
