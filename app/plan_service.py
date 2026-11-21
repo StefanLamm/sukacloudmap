@@ -69,13 +69,15 @@ def detail(db, row):
     return {**meta(db, row), **verified_body(row)}
 
 
-def append_version(db, snapshot, result, actor_id, actor_name, parent=None, job_id=None, status='DRAFT', note=''):
+def append_version(db, snapshot, result, actor_id, actor_name, parent=None, job_id=None, status='DRAFT', note='', *, control=None):
     latest_version = db.scalar(select(func.max(PlanVersion.version)).where(PlanVersion.delivery_date==snapshot.delivery_date)) or 0
     body = {'schema_version': 1, 'input': verified_body(snapshot), 'input_hash': snapshot.content_hash,
             'result': result, 'snapshot_id': snapshot.id}
     row = PlanVersion(delivery_date=snapshot.delivery_date, group_id=snapshot.group_id,version=latest_version+1,
                       parent_id=parent.id if parent else None, snapshot_id=snapshot.id, job_id=job_id, status=status,
                       content=encode(body), content_hash=content_hash(body), note=note, created_by=actor_id, created_by_name=actor_name)
+    if control:
+        control()
     db.add(row); db.flush(); event(db, actor_id, 'PLAN_'+status, row.id, f'{snapshot.delivery_date}方案V{row.version}：{note}'[:240])
     return row
 
@@ -124,9 +126,11 @@ def public_progress(value):
     return result
 
 
-def verify_deep_result(body,result,road,was_cancelled=False):
+def verify_deep_result(body,result,road,was_cancelled=False,*,control=None):
     """A second publication gate, separate from the search and road collector."""
-    data=normalize(body);proof=check_result(data,result)
+    if control:
+        control()
+    data=normalize(body);proof=check_result(data,result,control)
     if not result.get('fees_complete') or result.get('unassigned') or any(i['code']!='DRIVING_REFERENCE' for i in proof['issues']):
         raise ApiError(422,'DEEP_NO_FEASIBLE_PLAN','尚未找到覆盖全部门店且通过费用与配送限制校验的方案，请核对资料后重试。',proof['issues'])
     if result.get('check')!=proof:
@@ -146,6 +150,8 @@ def verify_deep_result(body,result,road,was_cancelled=False):
     if (was_cancelled or not live) and not claims_fresh:
         for route in result['routes']:
             for segment in route['segments']:
+                if control:
+                    control()
                 if not DrivingRoad.valid_reference(segment,allow_expired=True,allow_historical_status=True) or not 0<=int(time.time())-segment['received_at']<7*86400:
                     raise ApiError(422,'DEEP_ROAD_REFERENCE_EXPIRED','参考道路已过期或证据无效，未保存新方案。')
         return
@@ -158,6 +164,8 @@ def verify_deep_result(body,result,road,was_cancelled=False):
     for route in result['routes']:
         origin=data['warehouses'][data['vehicles'][route['vehicle_id']]['warehouse_id']]
         for task_id,segment in zip(route['task_ids'],route['segments']):
+            if control:
+                control()
             target=data['tasks'][task_id]
             key=content_hash(DrivingRoad.reference_request(origin,target))
             metadata=segment.get('actual_source_receipt')
@@ -198,17 +206,21 @@ def verify_deep_result(body,result,road,was_cancelled=False):
         raise ApiError(422,'DEEP_ROAD_RECEIPT','道路采集数量与最终选择不一致，未保存新方案。')
     if batch_mode:
         for key, metadata in selected.items():
+            if control:
+                control()
             receipt = road.batch_receipt(key)
             if receipt is None or any(receipt.get(k)!=v for k,v in metadata.items()):
                 raise ApiError(422,'DEEP_ROAD_RECEIPT','选中道路不属于本轮实时采集批次，未保存新方案。')
 
 
-def _verify_current_job_roads(result, road):
+def _verify_current_job_roads(result, road, control=None):
     """Check that priced manual and truck routes use only measurements made by this job."""
     if not getattr(road, 'fresh_only', False):
         return
     for route in result['routes']:
         for segment in route['segments']:
+            if control:
+                control()
             request = segment['request']
             if isinstance(road, DrivingRoad):
                 key = content_hash(DrivingRoad.reference_request(request['origin'], request['destination']))
@@ -329,9 +341,11 @@ class PlanningRunner:
                         current=db.get(PlanningJob,job_id)
                         last_poll[:] = [time.monotonic(),current is None or current.status!='RUNNING' or current.cancel_requested or current.lease_until is None or current.lease_until<now()]
                 return last_poll[1]
+            def publication_deadline():
+                if time.monotonic()>=wall_deadline:raise StopSearch('WALL_BUDGET')
             def wall_control():
                 if cancelled():raise StopSearch('CANCELLED')
-                if time.monotonic()>=wall_deadline:raise StopSearch('WALL_BUDGET')
+                publication_deadline()
             last_progress=[0,None]
             def progress(value):
                 state=public_progress(value)
@@ -385,12 +399,12 @@ class PlanningRunner:
                 if parent_result: compare_manual(result,parent_result)
             if self.settings.planning_road_source == 'TEST_GRID':
                 result['confirmable']=False;result['road_source']='FIXTURE';result['execution_scope']='TEST_ONLY'
-            _verify_current_job_roads(result, road)
+            _verify_current_job_roads(result, road, publication_deadline)
             if job.kind == 'OPTIMIZE':
                 if (isinstance(road, DrivingRoad) and road.fresh_only and road.calls
                         and not road.stats()['job_measured_directions']):
                     raise ApiError(502,'CURRENT_AMAP_UNAVAILABLE','本轮高德未返回可用道路，未生成替代方案，请稍后重试。')
-                verify_deep_result(body,result,road,cancelled())
+                verify_deep_result(body,result,road,cancelled(),control=publication_deadline)
                 result_verified=True
                 progress({'stage':'SAVING','message':'校验完成，正在保存最低费用可行方案','best_fee':result['total_fee']})
             result.setdefault('algorithm',{}).update(
@@ -422,7 +436,9 @@ class PlanningRunner:
                     if wall_publication_gate(current,result):db.commit();return
                     current.result=encode(result)
                     append_version(db,snapshot,result,current.created_by,current.created_by_name,parent,current.id,
-                                   note=payload.get('note') or ('取消前保留的完整结果' if stopped else '自动规划' if current.kind=='OPTIMIZE' else '人工调整重算'))
+                                   note=payload.get('note') or ('取消前保留的完整结果' if stopped else '自动规划' if current.kind=='OPTIMIZE' else '人工调整重算'),
+                                   control=publication_deadline)
+                    publication_deadline()
                     current.status='CANCELLED' if stopped else 'COMPLETED'
                 current.finished_at=now()
                 db.commit()

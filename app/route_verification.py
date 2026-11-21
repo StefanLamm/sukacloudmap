@@ -20,9 +20,9 @@ from app.routing_engine import (RoadError, StopSearch, assemble, check_result,
 from app.route_metrics import evaluate_candidate
 
 
-def complete(data, result):
+def complete(data, result, control=None):
     try:
-        proof = check_result(data, result)
+        proof = check_result(data, result, control) if control else check_result(data, result)
         return (not result['unassigned'] and result['fees_complete']
                 and all(issue['code'] == 'DRIVING_REFERENCE' for issue in proof['issues']))
     except (KeyError, TypeError, ValueError, ArithmeticError):
@@ -99,13 +99,17 @@ class CollectedDrivingRoad:
         return {'source': 'DRIVING', 'calls': 0, 'cache_hits': self.hits,
                 'call_limit': 0, 'collected_reference_edges': len(self.receipts)}
 
-    def verify(self, data, result, finished_at):
-        if not complete(data, result):
+    def verify(self, data, result, finished_at, control=None):
+        if control:
+            control()
+        if not complete(data, result, control):
             raise ApiError(422, 'DEEP_NO_FEASIBLE_PLAN', '道路复核后仍有配送冲突，未保存新方案。')
         selected = {}
         for route in result['routes']:
             origin = data['warehouses'][data['vehicles'][route['vehicle_id']]['warehouse_id']]
             for task_id, segment in zip(route['task_ids'], route['segments']):
+                if control:
+                    control()
                 destination = data['tasks'][task_id]
                 key = self.key(origin, destination)
                 actual = self.receipts.get(key)
@@ -121,6 +125,8 @@ class CollectedDrivingRoad:
                     raise ApiError(422, 'DEEP_ROAD_RECEIPT', '选中道路与本轮真实回执不一致，未保存新方案。')
                 selected[key] = {k: receipt[k] for k in ('received_at', 'meters', 'seconds', 'evidence_hash')}
                 origin = destination
+        if control:
+            control()
         return selected
 
 
@@ -182,6 +188,8 @@ class DrivingCollector:
                     if self.job_fresh_only:
                         raw = self.road.batch_receipt(key)
             except RoadError as exc:
+                if exc.code in {'CANCELLED', 'WALL_BUDGET'}:
+                    raise StopSearch(exc.code) from None
                 # A permutation search must not retry the same failed provider
                 # direction thousands of times in one immutable validation batch.
                 self.failed_directions[key] = exc.code, exc.message
@@ -317,6 +325,8 @@ def _best_small_route(data, vehicle_id, ids, collector, repair_control, bridge_a
         else:
             diagnostics.update(search_completed=not diagnostics['unmeasured_orders'], stop_reason='ORDERS_EXAMINED')
     except StopSearch as exc:
+        if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+            raise
         if collector.cancelled():
             raise StopSearch('CANCELLED')
         diagnostics['stop_reason'] = exc.reason
@@ -338,13 +348,16 @@ def _repair_proposals(data, routes, common, collector, progress, repair_control)
         try:
             repair_control()
             return True
-        except StopSearch:
+        except StopSearch as exc:
+            if exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+                raise
             if collector.cancelled():
                 raise StopSearch('CANCELLED')
             return False
     for original in routes:
+        collector.control()
         vid, ids = original['vehicle_id'], list(original['task_ids'])
-        reevaluated = evaluate_route(data, vid, ids, collector.frozen)
+        reevaluated = evaluate_route(data, vid, ids, collector.frozen, collector.control)
         if not reevaluated['errors'] and reevaluated['fee'] is not None:
             fixed.append(reevaluated)
             continue
@@ -416,14 +429,17 @@ def _repair_proposals(data, routes, common, collector, progress, repair_control)
                               for i in dropped), Decimal(0))
                 accepted.append((price, label, actual, dropped))
                 repair_recipes.extend({'vehicle_id': r['vehicle_id'], 'task_ids': list(r['task_ids'])} for r in actual)
-            except (StopSearch, RoadError):
+            except (StopSearch, RoadError) as exc:
+                if isinstance(exc, StopSearch) and exc.reason in {'CANCELLED', 'WALL_BUDGET'}:
+                    raise
                 if collector.cancelled():
                     raise StopSearch('CANCELLED')
                 break
         # A prefix is a subset of already measured data, so it is safe even
         # when the optional repair search ran out of compute or bridge calls.
         for _, label, specs, dropped in prefix_fallback:
-            actual = [evaluate_route(data, s['vehicle_id'], s['task_ids'], collector.frozen) for s in specs]
+            actual = [evaluate_route(data, s['vehicle_id'], s['task_ids'], collector.frozen, collector.control)
+                      for s in specs]
             if not any(r['errors'] or r['fee'] is None for r in actual):
                 price = sum((Decimal(r['fee']) for r in actual), Decimal(0))
                 price += sum((Decimal(common_fee(data['tasks'][i]['pieces'], data['tasks'][i]['common_unit_price']))
@@ -455,7 +471,7 @@ def _repair_proposals(data, routes, common, collector, progress, repair_control)
     return assemble(data, fixed, priced_common, []), repair_log, repair_recipes
 
 
-def _refine_repaired_groups(data, current, originals, repair_log, collector, repair_control):
+def _refine_repaired_groups(data, current, originals, repair_log, collector, repair_control, protect):
     """Improve original small groups only after every delivery is feasible.
 
     A cheap fallback may have split the group or moved some stores to common.
@@ -465,12 +481,7 @@ def _refine_repaired_groups(data, current, originals, repair_log, collector, rep
     recipes = []
     by_vehicle = {row['vehicle_id']: row for row in originals}
     for record in repair_log:
-        try:
-            repair_control()
-        except StopSearch:
-            if collector.cancelled():
-                raise StopSearch('CANCELLED')
-            break
+        repair_control()
         original = by_vehicle[record['vehicle_id']]
         ids = list(original['task_ids'])
         members = set(ids)
@@ -488,12 +499,13 @@ def _refine_repaired_groups(data, current, originals, repair_log, collector, rep
         common = [r['task_id'] for r in current['common'] if r['task_id'] not in members]
         trial = assemble(data, kept + [route], common, [])
         if complete(data, trial) and result_rank(trial) < result_rank(current):
+            protect(trial)
             current = trial
             record.update(initial_method=record['method'], method='complete_small_reorder', common_store_count=0)
     return current, recipes
 
 
-def _consolidate_small_routes(data, current, collector, repair_control, progress):
+def _consolidate_small_routes(data, current, collector, repair_control, progress, protect, log):
     """Compare complete pair unions after repair, never force fewer vehicles.
 
     The accepted whole allocation is the fallback at every optional deadline.
@@ -502,18 +514,13 @@ def _consolidate_small_routes(data, current, collector, repair_control, progress
     """
     tried = set()
     recipes = []
-    log = []
     searches = 0
     while searches < 32:
-        try:
-            repair_control()
-        except StopSearch:
-            if collector.cancelled():
-                raise StopSearch('CANCELLED')
-            break
+        repair_control()
         used = {r['vehicle_id'] for r in current['routes']}
         pairs = []
         for left, right in combinations(current['routes'], 2):
+            collector.control()
             ids = list(left['task_ids']) + list(right['task_ids'])
             key = tuple(sorted(ids))
             if key in tried or not 2 <= len(ids) <= 8 or len(set(ids)) != len(ids):
@@ -547,16 +554,17 @@ def _consolidate_small_routes(data, current, collector, repair_control, progress
             kept = [r for r in current['routes'] if r['vehicle_id'] not in pair_cars]
             trial = assemble(data, kept + [route], [r['task_id'] for r in current['common']], [])
             if complete(data, trial) and result_rank(trial) < result_rank(current):
+                protect(trial)
                 current = trial
                 improved = True
         log.append({'task_count': len(ids), 'vehicle_id': car['id'], 'improved': improved,
                     'before_fee': before, 'after_fee': current['total_fee'], **details})
         progress({'stage': 'FINAL_SELECTION', 'message': '正在比较小线路合并费用', 'best_fee': current['total_fee'],
                   'consolidation_searches': searches})
-    return current, log, recipes
+    return current, recipes
 
 
-def _whole_price(data, draft, road):
+def _whole_price(data, draft, road, control=None):
     """Rank a whole proposal using current metrics; this is not evidence."""
     try:
         if len(set(draft['common_ids'])) != len(draft['common_ids']):
@@ -568,9 +576,11 @@ def _whole_price(data, draft, road):
                      for i in used), Decimal(0))
         cars = set()
         for row in draft['routes']:
+            if control:
+                control()
             if row['vehicle_id'] in cars or used.intersection(row['task_ids']):
                 return None
-            current = evaluate_candidate(data, row['vehicle_id'], list(row['task_ids']), road)
+            current = evaluate_candidate(data, row['vehicle_id'], list(row['task_ids']), road, control)
             if current is None or current['errors'] or current['fee'] is None:
                 return None
             cars.add(row['vehicle_id'])
@@ -596,6 +606,21 @@ def validate_driving(body, road, candidate, alternatives, *, cancelled, control,
     collector.frozen.deadline_limited_candidates = deadline_limited_candidates
     repair_log = []
     repair_recipes = []
+    protected = None
+    protected_count = 0
+
+    def proof_control():
+        if cancelled():
+            raise StopSearch('CANCELLED')
+        control()
+
+    def protect(result):
+        nonlocal protected, protected_count
+        verified_at = int(time.time())
+        selected = collector.frozen.verify(data, result, verified_at, proof_control)
+        protected = result, selected, verified_at
+        protected_count += 1
+
     try:
         progress({'stage': 'ROAD_VALIDATION', 'best_fee': candidate['total_fee']})
         draft = recipe(candidate)
@@ -611,54 +636,75 @@ def validate_driving(body, road, candidate, alternatives, *, cancelled, control,
                                                                    progress, repair_control)
         if not complete(data, current):
             raise ApiError(422, 'DEEP_NO_FEASIBLE_PLAN', '道路复核后仍有未完成配送，未保存新方案。')
-        # Establish the complete safety incumbent before spending any remaining
-        # optional budget on full permutations of the originally broken groups.
-        current, refined_recipes = _refine_repaired_groups(
-            data, current, routes, repair_log, collector, repair_control)
-        repair_recipes.extend(refined_recipes)
-        # A historically cheapest complete plan need not remain cheapest after
-        # traffic changes. Compare the promising other *whole* rounds too;
-        # only their missing bridges may extend the immutable current batch.
-        proposals = []
-        seen = {_allocation_key(recipe(current))}
-        proposal_road = _ProposalRoad(collector.frozen, collector.road)
-        for allocation in complete_recipes:
-            identity = _allocation_key(allocation)
-            if identity in seen:
-                continue
-            seen.add(identity)
-            price = _whole_price(data, allocation, proposal_road)
-            if price is not None and price <= Decimal(current['total_fee']):
-                proposals.append((price, allocation))
+        protect(current)
         whole_comparisons = 0
-        for _, allocation in sorted(proposals, key=lambda row: row[0])[:8]:
+        consolidations = []
+        optional_stop = None
+
+        def optional_control():
+            proof_control()
+            repair_control()
+
+        def selection_interrupted():
+            nonlocal optional_stop
             try:
-                repair_control()
-                trial = replay(data, allocation, collector, control)
+                proof_control()
+            except StopSearch as exc:
+                optional_stop = exc.reason
+                return True
+            return False
+
+        try:
+            current, refined_recipes = _refine_repaired_groups(
+                data, current, routes, repair_log, collector, optional_control, protect)
+            repair_recipes.extend(refined_recipes)
+            # Compare other complete rounds against the current batch after traffic changes.
+            proposals = []
+            seen = {_allocation_key(recipe(current))}
+            proposal_road = _ProposalRoad(collector.frozen, collector.road)
+            for allocation in complete_recipes:
+                optional_control()
+                identity = _allocation_key(allocation)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                price = _whole_price(data, allocation, proposal_road, optional_control)
+                if price is not None and price <= Decimal(current['total_fee']):
+                    proposals.append((price, allocation))
+            for _, allocation in sorted(proposals, key=lambda row: row[0])[:8]:
+                optional_control()
+                trial = replay(data, allocation, collector, proof_control)
                 whole_comparisons += 1
                 repair_recipes.extend({'vehicle_id': r['vehicle_id'], 'task_ids': list(r['task_ids'])}
                                       for r in trial['routes'] if not r['errors'] and r['fee'] is not None)
                 if complete(data, trial) and result_rank(trial) < result_rank(current):
+                    protect(trial)
                     current = trial
-            except StopSearch:
-                if cancelled():
-                    raise StopSearch('CANCELLED')
-                break
-        current, consolidations, consolidated_recipes = _consolidate_small_routes(
-            data, current, collector, repair_control, progress)
-        repair_recipes.extend(consolidated_recipes)
-        # Recombine all known route recipes on the immutable collected matrix.
-        # Missing historical directions cannot enter this final selection.
-        progress({'stage': 'FINAL_SELECTION', 'best_fee': current['total_fee']})
-        from app.route_columns import select_portfolio
-        seconds = selection_seconds() if callable(selection_seconds) else selection_seconds
-        joined = select_portfolio(body, collector.frozen, [current] + list(alternatives),
-                                  candidate_recipes=repair_recipes, complete_recipes=complete_recipes,
-                                  seconds=max(0, seconds), cancelled=cancelled)
-        if complete(data, joined) and result_rank(joined) < result_rank(current):
-            current = joined
+            current, consolidated_recipes = _consolidate_small_routes(
+                data, current, collector, optional_control, progress, protect, consolidations)
+            repair_recipes.extend(consolidated_recipes)
+            proof_control()
+            progress({'stage': 'FINAL_SELECTION', 'best_fee': current['total_fee']})
+            proof_control()
+            from app.route_columns import select_portfolio
+            seconds = selection_seconds() if callable(selection_seconds) else selection_seconds
+            joined = select_portfolio(body, collector.frozen, [current] + list(alternatives),
+                                      candidate_recipes=repair_recipes, complete_recipes=complete_recipes,
+                                      seconds=max(0, seconds), cancelled=selection_interrupted)
+            if optional_stop is not None:
+                raise StopSearch(optional_stop)
+            if complete(data, joined) and result_rank(joined) < result_rank(current):
+                protect(joined)
+        except StopSearch as exc:
+            if exc.reason not in {'CANCELLED', 'TIME_BUDGET', 'VALIDATION_PROOF_RESERVE'}:
+                raise
+            optional_stop = exc.reason
+        if cancelled():
+            optional_stop = 'CANCELLED'
+        else:
+            control()
+        current, selected, verified_at = protected
         finished_at = int(time.time())
-        selected = collector.frozen.verify(data, current, finished_at)
         stats = road.stats()
         ages = [row['received_at'] for row in selected.values()]
         validation = {'mode': 'FRESH_DRIVING_VALIDATED' if selected else 'COMMON_ONLY_VALIDATED',
@@ -677,6 +723,8 @@ def validate_driving(body, road, candidate, alternatives, *, cancelled, control,
                       'bridge_edge_limit': collector.max_bridge_edges,
                       'bridge_budget_exhausted': collector.bridge_budget_exhausted,
                       'whole_plan_comparisons': whole_comparisons,
+                      'optional_stop_reason': optional_stop, 'verified_checkpoints': protected_count,
+                      'last_checkpoint_at': verified_at,
                       'repairs': repair_log, 'consolidations': consolidations,
                       'failed_provider_directions': len(collector.failed_directions),
                       'requires_truck_review': True,

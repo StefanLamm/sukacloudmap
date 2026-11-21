@@ -3,14 +3,15 @@
 The transport double uses synthetic directed measurements. No real locations,
 provider requests, business database or private workbook is needed.
 """
+from copy import deepcopy
 from datetime import datetime, timedelta
 import time
 
 import pytest
 
-from app.route_verification import complete, validate_driving
+from app.route_verification import CollectedDrivingRoad, complete, validate_driving
 from app.routing_engine import StopSearch, assemble, evaluate_route, normalize
-from test_route_deep import BatchDriving
+from test_route_deep import BatchDriving, stub_rounds
 from test_route_neighborhood import problem
 
 
@@ -38,7 +39,7 @@ def validate(body, road, value, **kwargs):
     return validate_driving(body, road, value, [], cancelled=kwargs.pop('cancelled', lambda: False),
         control=kwargs.pop('control', lambda: None),
         repair_control=kwargs.pop('repair_control', lambda: None),
-        progress=lambda value: None, selection_seconds=.2, **kwargs)
+        progress=kwargs.pop('progress', lambda value: None), selection_seconds=.2, **kwargs)
 
 
 @pytest.mark.parametrize('cars', [1, 3])
@@ -253,18 +254,153 @@ def test_local_metric_cache_cannot_validate_a_tampered_receipt():
         collector.close()
 
 
-def test_cancellation_propagates_without_promoting_a_partial_merge():
+def test_cancellation_before_optional_work_keeps_the_fresh_complete_initial_plan():
     body, road = five_stops()
     value = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3', '4'])])
     state = {'cancelled': False}
+
     def cancel_optional():
         state['cancelled'] = True
         raise StopSearch('CANCELLED')
-    with pytest.raises(StopSearch) as exc:
-        validate(body, road, value, repair_control=cancel_optional,
-                 cancelled=lambda: state['cancelled'])
-    assert exc.value.reason == 'CANCELLED'
+
+    result, final = validate(body, road, value, repair_control=cancel_optional,
+                             cancelled=lambda: state['cancelled'])
+    assert complete(normalize(body), result) and result['total_fee'] == '26.00'
+    assert len(result['routes']) == 2 and final['fresh']
+    assert final['optional_stop_reason'] == 'CANCELLED' and final['verified_checkpoints'] == 1
+    assert final['selected_segments'] == final['actual_calls'] == road.calls == 5
     assert not road.force_refresh and road.allow_historical
+
+
+def test_default_deep_cancellation_keeps_the_fresh_merge_and_passes_publication_proof(settings, monkeypatch):
+    import httpx
+    from pydantic import SecretStr
+    from app.plan_service import _verify_current_job_roads, verify_deep_result
+    from app.road_service import DrivingRoad
+    from app.route_columns import select_portfolio
+    from app.route_deep import optimize_deep
+    from test_deep_road_call_budget import NoWait
+    from test_driving_reference import response
+
+    body, historical_road = five_stops()
+    body['source'] = 'DRIVING'
+    anchor = plan(body, historical_road, [('V0', ['0', '1']), ('V1', ['2', '3', '4'])])
+    warehouse = body['warehouses'][0]
+    warehouse_point = f"{warehouse['longitude']:.6f},{warehouse['latitude']:.6f}"
+    settings.amap_web_service_key = SecretStr('TEST_ONLY_FRESH_CANCEL')
+    settings.planning_route_mode = 'DRIVING'
+    settings.driving_live_calls_enabled = True
+    requests, cancelled_at = [], {}
+
+    def provider(request):
+        assert not cancelled_at, 'fresh validation contacted the provider after cancellation'
+        origin, destination = (request.url.params[name] for name in ('origin', 'destination'))
+        requests.append((origin, destination))
+        payload = response()
+        path = payload['route']['paths'][0]
+        path.update(distance='10000' if origin == warehouse_point else '2000', cost={'duration': '10'},
+                    steps=[{'polyline': f'{origin};{destination}'}])
+        return httpx.Response(200, json=payload)
+
+    def cancelled():
+        return bool(cancelled_at)
+
+    road = DrivingRoad(settings, production_planning=True, fresh_only=True, cancelled=cancelled,
+                       limiter=NoWait(), transport=httpx.MockTransport(provider))
+
+    def progress(update):
+        if update.get('consolidation_searches') == 1 and not cancelled_at:
+            cancelled_at.update(fee=update['best_fee'], calls=road.calls)
+
+    def select_before_validation(body, adapter, results, **kwargs):
+        if adapter is road:
+            return deepcopy(anchor)
+        assert not cancelled(), 'read-only selection restarted after cancellation'
+        return select_portfolio(body, adapter, results, **kwargs)
+
+    stub_rounds(monkeypatch, [anchor])
+    monkeypatch.setattr('app.route_edge_discovery.collect_promising_edges', lambda *args, **kwargs: {})
+    monkeypatch.setattr('app.route_deep._pre_selection_macros',
+                        lambda data, adapter, incumbent, *args: (incumbent, {'elapsed_seconds': 0}, []))
+    monkeypatch.setattr('app.route_deep._post_selection_small_groups',
+                        lambda data, adapter, incumbent, *args: (incumbent, {'elapsed_seconds': 0}))
+    monkeypatch.setattr('app.route_columns.select_portfolio', select_before_validation)
+
+    result = optimize_deep(body, road, 20, progress=progress, cancelled=cancelled)
+    _verify_current_job_roads(result, road)
+    verify_deep_result(body, result, road, was_cancelled=True)
+    final = result['algorithm']['final_validation']
+    assert anchor['total_fee'] == '26.00' and cancelled_at['fee'] == result['total_fee'] == '18.00'
+    assert result['algorithm']['stop_reason'] == final['optional_stop_reason'] == 'CANCELLED'
+    assert len(result['routes']) == 1 and len(result['routes'][0]['task_ids']) == 5 and not result['common']
+    assert complete(normalize(body), result) and result['execution_scope'] == 'REFERENCE_ONLY'
+    assert final['mode'] == 'FRESH_DRIVING_VALIDATED' and final['fresh'] and final['selected_subset_of_collected']
+    assert final['verified_checkpoints'] == 2 and final['consolidations'][0]['after_fee'] == '18.00'
+    assert final['selected_segments'] == final['selected_provider_count'] == 5
+    assert final['total_job_calls'] == road.calls == len(requests) == cancelled_at['calls']
+
+
+def test_cancellation_during_the_next_receipt_proof_keeps_only_the_previous_checkpoint(monkeypatch):
+    from app.road_service import DrivingRoad
+
+    body, road = five_stops()
+    anchor = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3', '4'])])
+    base_verify = CollectedDrivingRoad.verify
+    base_reference = DrivingRoad.valid_reference
+    checking_merge = False
+    receipts_checked = []
+
+    def verify(collector, data, result, finished_at, control=None):
+        nonlocal checking_merge
+        checking_merge = result['total_fee'] == '18.00'
+        try:
+            return base_verify(collector, data, result, finished_at, control=control)
+        finally:
+            checking_merge = False
+
+    def reference(receipt, **options):
+        valid = base_reference(receipt, **options)
+        if checking_merge:
+            assert valid
+            receipts_checked.append(road.calls)
+        return valid
+
+    monkeypatch.setattr(CollectedDrivingRoad, 'verify', verify)
+    monkeypatch.setattr(DrivingRoad, 'valid_reference', staticmethod(reference))
+    result, final = validate(body, road, anchor, cancelled=lambda: bool(receipts_checked))
+    assert receipts_checked == [road.calls] and road.calls > final['selected_segments']
+    assert complete(normalize(body), result) and result['total_fee'] == '26.00'
+    assert final['fresh'] and final['verified_checkpoints'] == 1 and final['optional_stop_reason'] == 'CANCELLED'
+    assert final['total_job_calls'] == road.calls and final['selected_provider_count'] == 5
+
+
+def test_absolute_wall_after_a_complete_checkpoint_still_stops_validation():
+    body, road = five_stops()
+    anchor = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3', '4'])])
+    reached = {}
+
+    def progress(update):
+        if update.get('consolidation_searches') == 1:
+            reached.update(fee=update['best_fee'], calls=road.calls)
+
+    def control():
+        if reached:
+            raise StopSearch('WALL_BUDGET')
+
+    with pytest.raises(StopSearch) as stopped:
+        validate(body, road, anchor, progress=progress, control=control)
+    assert stopped.value.reason == 'WALL_BUDGET' and reached['fee'] == '18.00'
+    assert road.calls == reached['calls']
+
+
+def test_cancellation_before_all_mandatory_routes_are_fresh_keeps_no_partial_checkpoint():
+    body, road = five_stops()
+    for task in body['tasks']:
+        task['common_unit_price'] = None
+    anchor = plan(body, road, [('V0', ['0', '1']), ('V1', ['2', '3', '4'])])
+    with pytest.raises(StopSearch) as stopped:
+        validate(body, road, anchor, cancelled=lambda: road.calls > 0)
+    assert stopped.value.reason == 'CANCELLED' and road.calls == 1
 
 
 def test_failed_direction_is_not_retried_by_other_permutations():

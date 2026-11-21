@@ -220,13 +220,15 @@ class StopSearch(Exception):
     def __init__(self, reason): self.reason = reason
 
 
-def check_result(data, result):
+def check_result(data, result, control=None):
     """Independent proof checks: coverage, physical allocation, evidence and arithmetic.
 
     Does not ask the solver or road service for a second opinion and never changes a result.
     """
     issues = []; seen = Counter(); cars = Counter(); dedicated = Decimal(0); common = Decimal(0)
     for r in result['routes']:
+        if control:
+            control()
         cars[r['vehicle_id']] += 1; seen.update(r['task_ids'])
         v = data['vehicles'].get(r['vehicle_id'])
         ts = [data['tasks'].get(i) for i in r['task_ids']]
@@ -254,6 +256,8 @@ def check_result(data, result):
         last = datetime.fromisoformat(data['warehouses'][v['warehouse_id']]['earliest_departure_at'])
         previous_id = v['warehouse_id']
         for t, s, stop in zip(ts, r['segments'], r['stops']):
+            if control:
+                control()
             request = s['request']
             if request['vehicle_id'] != v['id'] or request['from_id'] != previous_id or request['to_id'] != t['id'] or request['departure_at'] != last.isoformat():
                 issues.append(problem('ROAD_BINDING', '道路证据与车辆、顺序或时刻不一致'))
@@ -285,6 +289,8 @@ def check_result(data, result):
     # Shared delivery prices depend only on quantity and unit price. No store
     # business, unloading, latest-arrival or derived arrival fields are read.
     for row in result['common']:
+        if control:
+            control()
         seen[row['task_id']] += 1; t = data['tasks'].get(row['task_id'])
         expected_common = None if not t or t['common_unit_price'] is None else format((Decimal(t['pieces'])*Decimal(t['common_unit_price'])).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP),'.2f')
         if not t or row['fee'] != expected_common or row['fee'] is None or row['pieces'] != t['pieces']:

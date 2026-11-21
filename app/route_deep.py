@@ -851,6 +851,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                     deadline_limited_candidates=deadline_limited_candidates)
             except StopSearch as exc:
                 stopped = exc.reason
+                if exc.reason == 'WALL_BUDGET':
+                    raise
                 if exc.reason != 'CANCELLED':
                     raise ApiError(422, 'DEEP_VALIDATION_TIMEOUT', '道路复核等待达到时限，原输入及历史方案保留，请重试。') from None
                 chosen = deepcopy(best_complete or best)
@@ -860,6 +862,8 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
                     raise ApiError(409, 'CANCELLED', '取消时尚未完成本轮道路校验，未保存新方案。') from None
                 chosen = min(valid, key=result_rank)
                 validation = _offline_validation(data, chosen, road)
+            if validation.get('optional_stop_reason') == 'CANCELLED':
+                stopped = 'CANCELLED'
             stages.append({'stage': 'ROAD_VALIDATION', 'elapsed_seconds': round(time.monotonic() - before, 4),
                            'total_fee': chosen['total_fee'], 'mode': validation['mode']})
         else:

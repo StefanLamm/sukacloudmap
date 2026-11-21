@@ -4,6 +4,7 @@ import json
 import threading
 import time
 
+import pytest
 from sqlalchemy import select
 
 from app.database import start_write
@@ -125,18 +126,20 @@ def test_new_group_does_not_inherit_another_groups_saved_incumbent(basis,monkeyp
     assert again['status']=='COMPLETED' and seen[2]['incumbent']==saved['result']
 
 
-def test_wall_cutoff_retains_verified_complete_result_without_publishing(basis,monkeypatch,app):
+@pytest.mark.parametrize('expired_after', ['verify_deep_result', 'append_version'])
+def test_wall_cutoff_retains_verified_complete_result_without_publishing(basis,monkeypatch,app,expired_after):
     import app.plan_service as service
     from types import SimpleNamespace
     install_workflow(monkeypatch)
     real_clock=time.monotonic
     clock=SimpleNamespace(offset=0.)
     monkeypatch.setattr(service,'time',SimpleNamespace(monotonic=lambda:real_clock()+clock.offset))
-    verify=service.verify_deep_result
-    def checked_then_expired(*args,**kwargs):
-        verify(*args,**kwargs)
+    original=getattr(service, expired_after)
+    def completed_then_expired(*args,**kwargs):
+        result=original(*args,**kwargs)
         clock.offset=10000.
-    monkeypatch.setattr(service,'verify_deep_result',checked_then_expired)
+        return result
+    monkeypatch.setattr(service,expired_after,completed_then_expired)
     client,*_=basis
     job=waited(client,new_job(client,frozen(basis),budget_seconds=2,wall_budget_seconds=20))
     assert job['status']=='FAILED' and job['plan_id'] is None
