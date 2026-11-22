@@ -10,6 +10,7 @@ from app.api import ApiError, event, stamp
 from app.master_schemas import BEIJING
 from app.demand_groups import get_group, group_catalog
 from app.models import DailyDemand, DemandDay, DemandImport, InputSnapshot
+from app.regions import REGION_FIELDS
 
 SCHEMA_VERSION = 1
 
@@ -22,8 +23,8 @@ def content_hash(value):
     return hashlib.sha256(encode(value).encode()).hexdigest()
 
 
-def configuration(db, day, group_id=None):
-    data = group_catalog(db, day, group_id)
+def configuration(db, day, group_id=None, *, infer_regions=True):
+    data = group_catalog(db, day, group_id, infer_regions=infer_regions)
     source = {'master_revision': data['master_revision']}
     for kind in ['warehouses', 'vehicles', 'stores']:
         source[kind] = sorted([[row['id'], row['day_revision']] for row in data[kind]])
@@ -99,10 +100,47 @@ def frozen_body(day, context):
             'road_status': 'NOT_VERIFIED', 'task_policy': '每个配送日、门店形成一票，不拆分件数；仓库取冻结时的门店归属'}
 
 
-def changed_reasons(snapshot, context):
+def _plain_quotes(body):
+    used = [store['dedicated_quote_version'] for store in body['stores']]
+    return all(quote is None or (quote['mode'] in {'KM', 'BASE_STOPS'} and not quote.get('region_surcharge'))
+               for quote in (*used, *body['quotes']))
+
+
+def _without_cache_regions(body):
+    projection = {key: value for key, value in body.items() if key != 'configuration_hash'}
+    projection['stores'] = [{key: value for key, value in row.items() if key not in REGION_FIELDS}
+                            for row in body['stores']]
+    return projection
+
+
+def snapshot_input_is_current(db, snapshot, context, *, body=None):
+    """Match the frozen input, or prove harmless enrichment of a plain-price one."""
     if snapshot.input_fingerprint == context['fingerprint']:
+        return True
+    if (snapshot.group_id != context['group_id'] or snapshot.demand_revision != context['revision']
+            or context['configuration']['data']['delivery_date'] != snapshot.delivery_date):
+        return False
+    body = json.loads(snapshot.content) if body is None else body
+    if (content_hash(body) != snapshot.content_hash
+            or body.get('source_stamp') != context['configuration']['stamp'] or not _plain_quotes(body)):
+        return False
+    current = frozen_body(snapshot.delivery_date, context)
+    if not _plain_quotes(current) or _without_cache_regions(body) != _without_cache_regions(current):
+        return False
+    # Require the exact full persisted catalog. This also rejects changes to
+    # unrelated rows and legacy snapshots with a different inferred tree.
+    if '_persisted_region_context' not in context:
+        raw = configuration(db, snapshot.delivery_date, snapshot.group_id, infer_regions=False)
+        context['_persisted_region_context'] = input_context(db, snapshot.delivery_date, config=raw,
+                                                              group_id=snapshot.group_id)
+    persisted = context['_persisted_region_context']
+    return (snapshot.input_fingerprint == persisted['fingerprint']
+            and body == frozen_body(snapshot.delivery_date, persisted))
+
+
+def changed_reasons(db, snapshot, context, body):
+    if snapshot_input_is_current(db, snapshot, context, body=body):
         return []
-    body = json.loads(snapshot.content)
     reasons = []
     if snapshot.demand_revision != context['revision']:
         reasons.append('当日配送需求已替换')
@@ -115,9 +153,9 @@ def changed_reasons(snapshot, context):
     return reasons or ['当前输入与已冻结内容不一致']
 
 
-def snapshot_meta(snapshot, context):
+def snapshot_meta(db, snapshot, context):
     body = json.loads(snapshot.content)
-    reasons = changed_reasons(snapshot, context)
+    reasons = changed_reasons(db, snapshot, context, body)
     return {'id': snapshot.id, 'group_id':snapshot.group_id, 'delivery_date': snapshot.delivery_date, 'version': snapshot.version,
             'demand_revision': snapshot.demand_revision, 'content_hash': snapshot.content_hash,
             'created_at': stamp(snapshot.created_at), 'created_by': snapshot.created_by_name,
@@ -130,7 +168,7 @@ def freeze(db, day, actor_id, actor_name, context=None, group_id=None):
     if context['state'] is None:
         raise ApiError(422, 'DEMAND_NOT_IMPORTED', '请先导入并确认当日需求，再冻结规划输入。')
     latest = db.scalar(select(InputSnapshot).where(InputSnapshot.delivery_date == day, InputSnapshot.group_id == group_id).order_by(InputSnapshot.version.desc()).limit(1))
-    if latest and latest.input_fingerprint == context['fingerprint']:
+    if latest and snapshot_input_is_current(db, latest, context):
         return latest
     body = frozen_body(day, context)
     snapshot = InputSnapshot(delivery_date=day, group_id=group_id, version=(db.scalar(select(func.max(InputSnapshot.version)).where(InputSnapshot.delivery_date==day)) or 0)+1, demand_revision=context['revision'],
@@ -149,11 +187,11 @@ def day_state(db, day, group_id=None):
             'latest_import_id': context['state'].latest_import_id if context['state'] else None,
             'updated_at': stamp(context['state'].updated_at) if context['state'] else None,
             'items': context['rows'], 'totals': totals(context['rows'], context['configuration']['data']),
-            'latest_snapshot': snapshot_meta(latest, context) if latest else None, 'snapshot_count': count}
+            'latest_snapshot': snapshot_meta(db, latest, context) if latest else None, 'snapshot_count': count}
 
 
 def snapshot_detail(db, snapshot):
     body = json.loads(snapshot.content)
     if content_hash(body) != snapshot.content_hash:
         raise ApiError(500, 'SNAPSHOT_INTEGRITY', '快照完整性检查失败，请联系管理员。')
-    return {**snapshot_meta(snapshot, input_context(db, snapshot.delivery_date, group_id=snapshot.group_id)), 'input': body}
+    return {**snapshot_meta(db, snapshot, input_context(db, snapshot.delivery_date, group_id=snapshot.group_id)), 'input': body}

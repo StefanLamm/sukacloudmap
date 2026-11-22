@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.api import ApiError, event, stamp, stale
 from app.master_schemas import BEIJING, SCHEMAS, plain, today
 from app.location_tasks import location_metadata
-from app.regions import infer_region
+from app.regions import infer_region, persisted_region
 from app.models import Quote, QuoteVersion, Store, SystemState, Vehicle, VehicleDay, Warehouse, WarehouseDay, StoreDay, now
 
 MODELS = {"warehouses": Warehouse, "stores": Store, "vehicles": Vehicle, "quotes": Quote}
@@ -155,7 +155,7 @@ def receiving_deadline(store, delivery_date, override=None):
             'latest_arrival_source': ('DAY' if override else 'LEGACY') if custom else 'BUSINESS_CLOSE'}
 
 
-def catalog(db, delivery_date: date | None = None):
+def catalog(db, delivery_date: date | None = None, *, infer_regions=True):
     day = (delivery_date or today()).isoformat()
     warehouses = list(db.scalars(select(Warehouse).order_by(Warehouse.code)))
     stores = list(db.scalars(select(Store).order_by(Store.code)))
@@ -185,9 +185,10 @@ def catalog(db, delivery_date: date | None = None):
         warehouse_rows.append(row)
     store_days = {s.store_id:s for s in db.scalars(select(StoreDay).where(StoreDay.delivery_date == day))}
     store_rows = []
+    region_view = infer_region if infer_regions else persisted_region
     for s in stores:
         row = common(s, "stores")
-        row.update(infer_region(row))
+        row.update(region_view(row))
         override = store_days.get(s.id)
         row.update(day_revision=override.revision if override else 0, day_override=bool(override),
                    **receiving_deadline(s, date.fromisoformat(day), override))

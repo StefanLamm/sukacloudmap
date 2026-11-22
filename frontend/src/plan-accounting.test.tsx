@@ -37,6 +37,23 @@ it.each([true,false])('费用对比input_changed=%s时仅在true显示规划输�
  expect(Boolean(screen.queryByText('本次费用对比包含仓库归属或其他规划输入变化，请结合快照查看。'))).toBe(inputChanged);
  expect(screen.getByText('减少 ¥20.00')).toBeTruthy();
 });
+it.each([
+ {label:'同一快照仅摘要变化',snapshot:'S',planChanged:false,demandChanged:false,stale:false},
+ {label:'方案服务确认输入已变化',snapshot:'S',planChanged:true,demandChanged:false,stale:true},
+ {label:'同一快照的最新需求确认输入已变化',snapshot:'S',planChanged:false,demandChanged:true,stale:true},
+ {label:'不同快照且摘要不同',snapshot:'S2',planChanged:false,demandChanged:false,stale:true},
+])('$label 时正确显示版本状态并控制确认',async({snapshot,planChanged,demandChanged,stale})=>{
+ const original=mock.api.getMockImplementation()!;
+ const shown={...plan,input_changed:planChanged,road_source:'LIVE',
+  result:{...result,confirmable:true,road_source:'LIVE'}};
+ const current={...demand,input_fingerprint:'G',
+  latest_snapshot:{...demand.latest_snapshot!,id:snapshot,input_changed:demandChanged}};
+ mock.api.mockImplementation(async(path:string,method='GET')=>path==='/planning/plans/P'?shown:original(path,method));
+ render(<PlanPanel day={day} demand={current} notify={()=>{}}/>);
+ await screen.findByRole('heading',{name:'方案 V1'});
+ expect(Boolean(screen.queryByText(/输入已变化。本版本保留/))).toBe(stale);
+ expect(screen.getByRole('button',{name:'确认此方案'}).hasAttribute('disabled')).toBe(stale);
+});
 it('选择优化后仍提交人工分车和顺序作为起点，按分组加载及核算',async()=>{
  await editor('G');fireEvent.change(screen.getByLabelText('是否优化线路'),{target:{value:'yes'}});
  fireEvent.click(screen.getByRole('button',{name:'开始核算'}));

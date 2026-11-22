@@ -18,6 +18,7 @@ from app.amap_service import secret
 from app.config import ROOT
 
 CACHE = ROOT / 'data/amap/districts.json'
+REGION_FIELDS = ('province', 'city', 'district', 'region_code')
 _lock = Lock()
 _memory = None
 
@@ -95,9 +96,13 @@ def region_tree(settings, *, transport=None):
             raise ApiError(502,'REGION_UNAVAILABLE','省市区选项暂时加载失败，请稍后重试；已填写的资料会保留。') from None
 
 
+def persisted_region(values):
+    return {key: values.get(key) or '' for key in REGION_FIELDS}
+
+
 def infer_region(values):
     """Use only an existing cache; opening management never calls AMap."""
-    result={key:values.get(key) or '' for key in ['province','city','district','region_code']}
+    result=persisted_region(values)
     tree=cached_tree()
     if not tree:return result
     address=values.get('address') or ''

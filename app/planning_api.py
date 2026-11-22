@@ -99,7 +99,8 @@ def freeze_input(delivery_date: date, payload: FreezeInput, group_id:str|None=No
     if context['revision'] != payload.expected_revision or context['fingerprint'] != payload.expected_fingerprint:
         raise ApiError(409, 'INPUT_CHANGED', '需求或当天输入已变化，请刷新后重新冻结。')
     snapshot = freeze(db, day, identity.account.id, identity.account.display_name, context)
-    db.commit(); return snapshot_meta(snapshot, context)
+    payload = snapshot_meta(db, snapshot, context)
+    db.commit(); return payload
 
 
 @router.get('/days/{delivery_date}/snapshots')
@@ -108,7 +109,7 @@ def list_snapshots(delivery_date: date, group_id:str|None=None, offset: int = Qu
     day = delivery_date.isoformat(); context = input_context(db, day, group_id=group_id)
     items = db.scalars(select(InputSnapshot).where(InputSnapshot.delivery_date == day, InputSnapshot.group_id == group_id).order_by(InputSnapshot.version.desc()).offset(offset).limit(limit))
     count = db.scalar(select(func.count()).select_from(InputSnapshot).where(InputSnapshot.delivery_date == day, InputSnapshot.group_id == group_id))
-    return {'items': [snapshot_meta(s, context) for s in items], 'total': count}
+    return {'items': [snapshot_meta(db, s, context) for s in items], 'total': count}
 
 
 @router.get('/snapshots/{snapshot_id}/export.json')

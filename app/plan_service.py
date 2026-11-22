@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from app.api import ApiError, event, stamp
 from app.database import start_write
 from app.models import Account, InputSnapshot, PlanningJob, PlanVersion, now
-from app.planning_inputs import content_hash, encode, input_context
+from app.planning_inputs import content_hash, encode, input_context, snapshot_input_is_current
 from app.road_service import DrivingRoad, SyntheticRoad, TruckRoad
 from app.auto_dedicated import allocate_dedicated
 from app.routing_engine import RoadError, StopSearch, check_result, compare_manual, normalize, optimize, optimize_manual, recalculate
@@ -58,7 +58,7 @@ def meta(db, row, context=None):
             'snapshot_id': row.snapshot_id, 'snapshot_version': snapshot.version, 'status': row.status,
             'input_fingerprint':snapshot.input_fingerprint,
             'content_hash': row.content_hash, 'note': row.note, 'created_at': stamp(row.created_at), 'created_by': row.created_by_name,
-            'input_changed': snapshot.input_fingerprint != context['fingerprint'], 'total_fee': body['result']['total_fee'],
+            'input_changed': not snapshot_input_is_current(db,snapshot,context), 'total_fee': body['result']['total_fee'],
             'valid': body['result']['check']['valid'], 'confirmable': body['result']['confirmable'],
             'blocking_issue_count':sum(issue['code']!='DRIVING_REFERENCE' for issue in body['result']['check']['issues']),
             'reference_notice_count':sum(issue['code']=='DRIVING_REFERENCE' for issue in body['result']['check']['issues']),
@@ -426,7 +426,8 @@ class PlanningRunner:
                 actor=db.get(Account,current.created_by)
                 if current.kind=='OPTIMIZE' and (actor is None or not actor.active or actor.deleted_at is not None):
                     current.status='FAILED';current.error_code='ACCOUNT_DISABLED';current.error_message='发起账号已停用，计算结果保留在任务中，未新增方案。'
-                elif current.kind=='OPTIMIZE' and snapshot.input_fingerprint!=input_context(db,current.delivery_date,group_id=current.group_id)['fingerprint']:
+                elif current.kind=='OPTIMIZE' and not snapshot_input_is_current(
+                        db,snapshot,input_context(db,current.delivery_date,group_id=current.group_id)):
                     current.status='CANCELLED' if current.cancel_requested else 'FAILED';current.error_code='INPUT_CHANGED';current.error_message='计算期间需求或基础资料已变化，结果保留在任务中；请冻结最新输入后重新规划。'
                 elif (latest.version if latest else 0) != payload['expected_head']:
                     current.status='FAILED';current.error_code='PLAN_VERSION_CONFLICT';current.error_message='重算期间已有新方案，结果保留，请刷新后重新操作。'

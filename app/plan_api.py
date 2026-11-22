@@ -12,7 +12,7 @@ from app.models import InputSnapshot, PlanningJob, PlanVersion
 from app.plan_export import export_xlsx
 from app.plan_service import (append_version, default_wall_wait_policy, detail, expect_head,
                               job_view, meta, planning_wall_budget_seconds, verified_body)
-from app.planning_inputs import encode, input_context
+from app.planning_inputs import encode, input_context, snapshot_input_is_current
 from app.road_service import FixtureRoad, load_fixture
 from app.auto_dedicated import allocate_dedicated
 from app.routing_engine import check_result, compare_manual, normalize, optimize, optimize_manual, recalculate
@@ -90,8 +90,9 @@ def create_job(payload:NewJob,request:Request,identity:Identity=Depends(authenti
     if snapshot is None: raise ApiError(404,'SNAPSHOT_NOT_FOUND','规划输入快照不存在。')
     if payload.group_id != snapshot.group_id:
         raise ApiError(422,'GROUP_MISMATCH','请选择快照所属的需求分组。')
-    verified_body(snapshot); expect_head(db,snapshot.delivery_date,payload.expected_head,snapshot.group_id)
-    if payload.kind=='OPTIMIZE' and snapshot.input_fingerprint!=input_context(db,snapshot.delivery_date,group_id=snapshot.group_id)['fingerprint']:
+    body=verified_body(snapshot); expect_head(db,snapshot.delivery_date,payload.expected_head,snapshot.group_id)
+    if payload.kind=='OPTIMIZE' and not snapshot_input_is_current(
+            db,snapshot,input_context(db,snapshot.delivery_date,group_id=snapshot.group_id),body=body):
         raise ApiError(409,'INPUT_CHANGED','输入已变化，请先重新冻结当日快照。')
     if payload.kind=='MANUAL' and payload.draft is None: raise ApiError(422,'DRAFT_REQUIRED','请提交人工调整内容。')
     if payload.parent_id:
@@ -169,7 +170,7 @@ def confirm(plan_id:str,payload:VersionAction,identity:Identity=Depends(authenti
     row=get_plan(db,plan_id);latest=expect_head(db,row.delivery_date,payload.expected_head,row.group_id)
     if latest.id!=row.id: raise ApiError(409,'NOT_LATEST_PLAN','请先恢复为新草稿后再确认历史版本。')
     body=verified_body(row);snapshot=db.get(InputSnapshot,row.snapshot_id)
-    if snapshot.input_fingerprint!=input_context(db,row.delivery_date,group_id=row.group_id)['fingerprint']:
+    if not snapshot_input_is_current(db,snapshot,input_context(db,row.delivery_date,group_id=row.group_id)):
         raise ApiError(409,'INPUT_CHANGED','输入已变化，旧版本保留只读，请基于新快照重新规划。')
     proof=check_result(normalize(body['input']),body['result'])
     live=all(s['source']=='LIVE' and s['verified'] for r in body['result']['routes'] for s in r['segments'])

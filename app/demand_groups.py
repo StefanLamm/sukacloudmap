@@ -25,8 +25,8 @@ def group_view(db, group):
             'plan_count':db.scalar(select(func.count()).select_from(PlanVersion).where(PlanVersion.group_id==group.id))}
 
 
-def group_catalog(db, day, group_id=None):
-    data=catalog(db,date.fromisoformat(day))
+def group_catalog(db, day, group_id=None, *, infer_regions=True):
+    data=catalog(db,date.fromisoformat(day),infer_regions=infer_regions)
     if group_id is None:return data
     get_group(db,group_id,day)
     overrides={(r.kind,r.entity_id):r for r in db.scalars(select(GroupArrangement).where(GroupArrangement.group_id==group_id))}
