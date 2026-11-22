@@ -35,7 +35,9 @@ def test_cache_appearance_during_job_respects_publication_and_cutoffs(basis, app
     monkeypatch.setattr(regions, 'cached_tree', lambda: cache)
     group, snapshot = snapshot_for(client, store)
     original = detail(client, snapshot)
+    original_fingerprint = state(client, group)['input_fingerprint']
     assert original['input']['stores'][0]['region_code'] == ''
+    assert 'equivalent_input_fingerprint' not in original
     entered_at_publication = []
     monotonic = time.monotonic
     clock = SimpleNamespace(offset=0.)
@@ -58,8 +60,12 @@ def test_cache_appearance_during_job_respects_publication_and_cutoffs(basis, app
         cache = tree()
         with app.state.sessions() as db:
             assert configuration(db, DAY, group['id'])['hash'] != original['input']['configuration_hash']
-        assert not detail(client, snapshot)['input_changed']
-        assert detail(client, snapshot)['input'] == original['input']
+        current = state(client, group)
+        enriched = detail(client, snapshot)
+        assert not enriched['input_changed'] and enriched['input'] == original['input']
+        assert current['input_fingerprint'] != original_fingerprint
+        assert enriched['equivalent_input_fingerprint'] == current['input_fingerprint']
+        assert current['latest_snapshot']['equivalent_input_fingerprint'] == current['input_fingerprint']
         if terminal == 'CANCELLED':
             assert client.post('/api/planning/jobs/'+job['id']+'/cancel').status_code == 200
     finally:
@@ -82,6 +88,7 @@ def test_cache_appearance_during_job_respects_publication_and_cutoffs(basis, app
         refreeze = client.post('/api/planning/days/'+DAY+'/snapshots', params={'group_id': group['id']}, json={
             'expected_revision': current['revision'], 'expected_fingerprint': current['input_fingerprint']})
         assert refreeze.status_code == 200 and refreeze.json()['id'] == snapshot
+        assert refreeze.json()['equivalent_input_fingerprint'] == current['input_fingerprint']
         confirmed = client.post('/api/planning/plans/'+saved['id']+'/confirm',
                                 json={'expected_head': saved['version']})
         assert confirmed.status_code == 201, confirmed.text
@@ -126,8 +133,11 @@ def test_mismatch_stays_strict_without_proof_of_plain_cache_enrichment(basis, ap
                     snap.content = snap.content.replace('"甲市"', '"篡改标签"')
                 db.commit()
         if change != 'integrity':
-            assert detail(client, snapshot)['input_changed']
-            assert state(client, group)['latest_snapshot']['input_changed']
+            latest = state(client, group)['latest_snapshot']
+            snapshot_detail = detail(client, snapshot)
+            assert latest['input_changed'] and snapshot_detail['input_changed']
+            assert 'equivalent_input_fingerprint' not in latest
+            assert 'equivalent_input_fingerprint' not in snapshot_detail
     finally:
         release.set()
     done = waited(client, job)

@@ -159,9 +159,12 @@ export function PlanPanel({day,groupId,demand,notify}:{day:string;groupId?:strin
   const filtered=tasks.filter(t=>[t.code,t.name].some(v=>v.includes(query)));const editorPage=pageIndex(page,filtered.length,pageSize);const visible=filtered.slice(editorPage*pageSize,editorPage*pageSize+pageSize);
   const vehicles=current?.input.vehicles??[];const proof=result?.check;const fleet=fleetSummary(result?.routes??[],vehicles);const references=roadReferenceSummary(result?.routes??[]);const blockingIssues=proof?.issues.filter(issue=>issue.code!=='DRIVING_REFERENCE')??[];
   const demandSnapshot=demand?.latest_snapshot;
-  const planStale=Boolean(plan&&(plan.input_changed||(demandSnapshot?.id===plan.snapshot_id
-    ?demandSnapshot.input_changed
-    :demand&&plan.input_fingerprint!==demand.input_fingerprint)));
+  const sameSnapshot=plan&&demandSnapshot?.id===plan.snapshot_id?demandSnapshot:null;
+  const matchingInputProof=demand&&plan?.input_changed===false&&sameSnapshot?.input_changed===false&&
+    typeof sameSnapshot.equivalent_input_fingerprint==='string'&&
+    sameSnapshot.equivalent_input_fingerprint===demand.input_fingerprint;
+  const planStale=Boolean(plan&&(plan.input_changed||sameSnapshot?.input_changed||
+    (demand&&plan.input_fingerprint!==demand.input_fingerprint&&!matchingInputProof)));
   const filteredCommon=(result?.common??[]).filter(r=>{const t=taskById.get(r.task_id);return !resultQuery||Boolean(t&&(t.code+t.name).includes(resultQuery));});const commonPages=Math.ceil(filteredCommon.length/resultSize);const commonPage=Math.min(resultPage,Math.max(0,commonPages-1));const unassignedPage=pageIndex(resultPage,result?.unassigned.length??0,resultSize);const conflictPage=pageIndex(issuePage,proof?.issues.length??0,issueSize);
   const mapped=buildPlanMap(current?.input.warehouses??[],taskById,result?.routes??[],(result?.common??[]).map(row=>row.task_id),mapVehicle==='all'?undefined:mapVehicle);
   const inlineMap=routeMapId?buildPlanMap(current?.input.warehouses??[],taskById,result?.routes??[],[],routeMapId):null;

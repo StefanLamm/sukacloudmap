@@ -38,16 +38,19 @@ it.each([true,false])('费用对比input_changed=%s时仅在true显示规划输�
  expect(screen.getByText('减少 ¥20.00')).toBeTruthy();
 });
 it.each([
- {label:'同一快照仅摘要变化',snapshot:'S',planChanged:false,demandChanged:false,stale:false},
- {label:'方案服务确认输入已变化',snapshot:'S',planChanged:true,demandChanged:false,stale:true},
- {label:'同一快照的最新需求确认输入已变化',snapshot:'S',planChanged:false,demandChanged:true,stale:true},
- {label:'不同快照且摘要不同',snapshot:'S2',planChanged:false,demandChanged:false,stale:true},
-])('$label 时正确显示版本状态并控制确认',async({snapshot,planChanged,demandChanged,stale})=>{
+ {label:'同一快照已经确认等价',snapshot:'S',proof:'G',planChanged:false,demandChanged:false,stale:false},
+ {label:'同一快照未确认等价',snapshot:'S',proof:undefined,planChanged:false,demandChanged:false,stale:true},
+ {label:'同一快照等价证明对应其他摘要',snapshot:'S',proof:'H',planChanged:false,demandChanged:false,stale:true},
+ {label:'方案服务确认输入已变化',snapshot:'S',proof:'G',planChanged:true,demandChanged:false,stale:true},
+ {label:'同一快照的最新需求确认输入已变化',snapshot:'S',proof:'G',planChanged:false,demandChanged:true,stale:true},
+ {label:'不同快照且摘要不同',snapshot:'S2',proof:'G',planChanged:false,demandChanged:false,stale:true},
+])('$label 时正确显示版本状态并控制确认',async({snapshot,proof,planChanged,demandChanged,stale})=>{
  const original=mock.api.getMockImplementation()!;
  const shown={...plan,input_changed:planChanged,road_source:'LIVE',
   result:{...result,confirmable:true,road_source:'LIVE'}};
  const current={...demand,input_fingerprint:'G',
-  latest_snapshot:{...demand.latest_snapshot!,id:snapshot,input_changed:demandChanged}};
+  latest_snapshot:{...demand.latest_snapshot!,id:snapshot,input_changed:demandChanged,
+   ...(proof===undefined?{}:{equivalent_input_fingerprint:proof})}};
  mock.api.mockImplementation(async(path:string,method='GET')=>path==='/planning/plans/P'?shown:original(path,method));
  render(<PlanPanel day={day} demand={current} notify={()=>{}}/>);
  await screen.findByRole('heading',{name:'方案 V1'});

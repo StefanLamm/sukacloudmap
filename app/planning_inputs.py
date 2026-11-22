@@ -156,10 +156,13 @@ def changed_reasons(db, snapshot, context, body):
 def snapshot_meta(db, snapshot, context):
     body = json.loads(snapshot.content)
     reasons = changed_reasons(db, snapshot, context, body)
-    return {'id': snapshot.id, 'group_id':snapshot.group_id, 'delivery_date': snapshot.delivery_date, 'version': snapshot.version,
+    meta = {'id': snapshot.id, 'group_id':snapshot.group_id, 'delivery_date': snapshot.delivery_date, 'version': snapshot.version,
             'demand_revision': snapshot.demand_revision, 'content_hash': snapshot.content_hash,
             'created_at': stamp(snapshot.created_at), 'created_by': snapshot.created_by_name,
             'totals': body['totals'], 'input_changed': bool(reasons), 'changed_reasons': reasons}
+    if not reasons and snapshot.input_fingerprint != context['fingerprint']:
+        meta['equivalent_input_fingerprint'] = context['fingerprint']
+    return meta
 
 
 def freeze(db, day, actor_id, actor_name, context=None, group_id=None):
