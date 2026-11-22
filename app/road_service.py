@@ -6,6 +6,7 @@ restriction flag is good. Never silently promote current-time data to an ETD pro
 """
 from copy import deepcopy
 from collections import OrderedDict
+from dataclasses import dataclass
 import json
 import math
 import time
@@ -22,6 +23,24 @@ from app.routing_engine import RoadError
 PROFILE = ['plate', 'size', 'cartype', 'plate_color', 'length_m', 'width_m', 'height_m', 'rated_load_t', 'full_gross_t', 'axles']
 ENDPOINT = 'https://tsapi.amap.com/v1/logistics/transport/route/direction/truck'
 DRIVING_ENDPOINT = 'https://restapi.amap.com/v5/direction/driving'
+
+
+@dataclass(frozen=True, slots=True)
+class _IndexedBatchReceipt:
+    """The compressed evidence and its exact directional scalars share one seal."""
+
+    packed: bytes
+    origin: tuple[str, str, str]
+    destination: tuple[str, str, str]
+    meters: int
+    seconds: int
+    received_at: int
+    evidence_hash: str
+
+
+def provider_coordinate_key(point):
+    # The provider request hash distinguishes its signed zero coordinates.
+    return repr(point['longitude']), repr(point['latitude']), point['crs']
 
 
 def load_fixture(fixture_id):
@@ -265,6 +284,7 @@ class DrivingRoad(TruckRoad):
         self.graph=None;self._metric_keys={};self.metric_hints={};self.historical_hits=0
         self.local=OrderedDict();self._freshened_keys=set();self._fresh_bound_keys=set()
         self._batch_receipts = {}
+        self._batch_receipt_indexing = None
         if self.fresh_only:
             return
         path=getattr(self.settings,'amap_reference_graph_path',None)
@@ -383,7 +403,38 @@ class DrivingRoad(TruckRoad):
     def batch_receipt(self, provider_key):
         """Return the original provider measurement for this job and direction."""
         packed = self._batch_receipts.get(provider_key)
+        if isinstance(packed, _IndexedBatchReceipt):
+            packed = packed.packed
         return json.loads(zlib.decompress(packed)) if packed is not None else None
+
+    def _seal_batch_receipt(self, provider_key, provider_request, item):
+        indexed = getattr(self, '_batch_receipt_indexing', None)
+        if indexed is None:
+            experiments = getattr(self, 'deep_experiments', None)
+            indexed = not self._batch_receipts and getattr(experiments, 'pyvrp_indexed_current_receipts', False)
+        packed = zlib.compress(json.dumps(item, separators=(',', ':')).encode(), level=1)
+        if indexed:
+            packed = _IndexedBatchReceipt(packed, provider_coordinate_key(provider_request['origin']),
+                provider_coordinate_key(provider_request['destination']), item['meters'], item['seconds'],
+                item['received_at'], item['evidence_hash'])
+        self._batch_receipts[provider_key] = packed
+        self._batch_receipt_indexing = indexed
+
+    def indexed_batch_receipts(self, control):
+        """Read immutable same-job records, or request exact legacy fallback."""
+        if not getattr(self, 'fresh_only', False):
+            return None
+        if not self._batch_receipts:
+            return ()
+        if getattr(self, '_batch_receipt_indexing', None) is not True:
+            return None
+        result = []
+        for key, row in self._batch_receipts.items():
+            control()
+            if not isinstance(row, _IndexedBatchReceipt):
+                return None
+            result.append((key, row))
+        return result
 
     def stats(self):
         return {**super().stats(), 'source': 'DRIVING', 'endpoint': DRIVING_ENDPOINT,
@@ -517,7 +568,7 @@ class DrivingRoad(TruckRoad):
                                 'TRUCK_NOT_VERIFIED', time_status='CURRENT_TRAFFIC_REFERENCE', received_at=int(time.time()),
                                 notice='普通驾车参考；未核验货车限高、限重、限行及计划发车时刻，需人工核对')
                 if self.fresh_only:
-                    self._batch_receipts[provider_key] = zlib.compress(json.dumps(item, separators=(',', ':')).encode(), level=1)
+                    self._seal_batch_receipt(provider_key, provider_request, item)
                     self.remember_metrics(provider_key, item)
                     self.local[key] = item
                     self.trim_geometry(self.local)

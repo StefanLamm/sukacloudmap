@@ -3,9 +3,12 @@ from copy import deepcopy
 
 import pytest
 
+from app.road_service import DrivingRoad, TruckRoad
 from app.route_deep import optimize_deep
+from app.route_pyvrp_tail import _measure
 from app.route_verification import complete
 from app.routing_engine import normalize
+from test_pyvrp_receipt_index import raw
 from test_route_columns import problem, plan
 from test_route_deep import stub_rounds
 
@@ -71,6 +74,7 @@ def test_daily_default_disables_unadopted_stages_and_keeps_legacy_long_budget_lo
         'joint_reoptimization': False, 'scalable_joint_search': False, 'stage_budget_reservation': False,
         'critical_edge_collection': True, 'quote_group_rotation': False, 'gain_time_allocation': False,
         'generation_selection_loop': expect_cycles, 'pyvrp_group_generation': True,
+        'pyvrp_indexed_current_receipts': False,
     }
     stages = {row['stage']: row for row in result['algorithm']['stages']}
     seed = stages['CURRENT_INPUT_COLD_SEED']['details']
@@ -116,7 +120,7 @@ def test_explicit_experiment_dicts_still_isolate_components(monkeypatch, flags, 
     for key in ('complete_assignment_pricing', 'fragment_merging', 'joint_reoptimization',
                 'scalable_joint_search', 'stage_budget_reservation', 'critical_edge_collection',
                 'generation_selection_loop', 'quote_group_rotation', 'gain_time_allocation',
-                'pyvrp_group_generation'):
+                'pyvrp_group_generation', 'pyvrp_indexed_current_receipts'):
         assert actual[key] is flags.get(key, False)
     assert actual['diagnostics'] is True
 
@@ -169,3 +173,56 @@ def test_pyvrp_group_stage_at_the_ordinary_deep_entry(monkeypatch, budget, mode)
         assert stage['after_fee'] == result['total_fee'] == incumbent['total_fee']
     if mode in {'cancelled', 'cancel_after_checked'}:
         assert stage['details']['stop_reason'] == result['algorithm']['stop_reason'] == 'CANCELLED'
+
+
+@pytest.mark.parametrize('mode', ['daily_driving', 'explicit_off', 'research', 'disabled_roads', 'truck'])
+def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(settings, monkeypatch, mode):
+    body, matrix = problem(n=2, cars=1, capacity=2)
+    for index, point in enumerate(body['warehouses'] + body['tasks']):
+        point.update(longitude=118. + index / 100, latitude=31., crs='GCJ02')
+    incumbent = plan(body, matrix)
+    settings.planning_route_mode = 'TRUCK' if mode == 'truck' else 'DRIVING'
+    settings.driving_live_calls_enabled = mode != 'disabled_roads'
+    settings.truck_live_calls_enabled = mode == 'truck'
+    adapter = TruckRoad if mode == 'truck' else DrivingRoad
+    road = adapter(settings, production_planning=mode != 'research', fresh_only=True)
+    expected = mode == 'daily_driving'
+    events = []
+
+    def forbid(*_args):
+        pytest.fail('This test must never ask for provider roads.')
+
+    road.segment = forbid
+    monkeypatch.setattr('app.route_edge_discovery.collect_promising_edges', lambda *_args, **_kwargs: {})
+    stub_rounds(monkeypatch, [incumbent])
+    monkeypatch.setattr('app.route_columns.select_portfolio', lambda *_args, **_kwargs: deepcopy(incumbent))
+    monkeypatch.setattr('app.route_deep._post_selection_small_groups',
+                        lambda _data, _road, current, *_args: (current, {'elapsed_seconds': 0.}))
+
+    def first_seal(data, current, anchor, *_args):
+        assert current.deep_experiments.pyvrp_indexed_current_receipts is expected
+        if isinstance(current, DrivingRoad):
+            evidence = raw(current, data['warehouses']['W'], data['tasks']['0'], 1000)
+            current._seal_batch_receipt(*evidence)
+            assert (current.indexed_batch_receipts(lambda: None) is not None) is expected
+        events.append('first_seal')
+        return anchor, {'elapsed_seconds': 0.}, []
+
+    def inspect_phase(_body, current, anchor, *, control, **_kwargs):
+        if isinstance(current, DrivingRoad):
+            measured, rows = _measure(current, normalize(body), fresh=True, control=control)
+            assert measured.indexed_current_receipts is expected
+            assert rows == [(None, '0', 1000, 5)]
+        else:
+            assert not hasattr(current, 'indexed_batch_receipts')
+        events.append('pyvrp')
+        return anchor, {'stop_reason': 'TESTED', 'candidate_count': 0}
+
+    monkeypatch.setattr('app.route_deep._pre_selection_macros', first_seal)
+    monkeypatch.setattr('app.route_pyvrp_tail.improve', inspect_phase)
+    flags = {'pyvrp_group_generation': True, 'pyvrp_indexed_current_receipts': False} if mode == 'explicit_off' else None
+    result = optimize_deep(body, road, 300, experiments=flags)
+    assert events == ['first_seal', 'pyvrp']
+    assert result['algorithm']['experiments']['pyvrp_indexed_current_receipts'] is expected
+    assert result['total_fee'] == incumbent['total_fee'] and road.calls == 0
+    assert not hasattr(road, 'deep_experiments')

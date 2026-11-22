@@ -4,8 +4,9 @@ from decimal import Decimal
 from math import isfinite
 from time import monotonic
 
+from app.coordinates import provider_point
 from app.planning_inputs import content_hash
-from app.road_service import DRIVING_ENDPOINT, DrivingRoad, TruckRoad
+from app.road_service import DRIVING_ENDPOINT, DrivingRoad, TruckRoad, provider_coordinate_key
 from app.route_columns import select_portfolio
 from app.route_verification import CollectedDrivingRoad, complete, recipe, replay
 from app.routing_engine import RoadError, StopSearch, assemble, common_fee, normalize
@@ -91,6 +92,7 @@ class _MeasuredRoad:
     """The selector sees the same signed directional metrics as native search."""
 
     deadline_limited_candidates = True
+    indexed_current_receipts = False
 
     def __init__(self, source, metrics, receipt_keys, fresh):
         self.metrics = metrics
@@ -114,11 +116,57 @@ def _signed_metrics(row):
                     for field in ('meters', 'seconds', 'received_at')))
 
 
+def _measure_indexed(road, origins, indexed, control):
+    origin_aliases, destination_aliases = defaultdict(list), defaultdict(list)
+    for task_id, point in origins:
+        control()
+        try:
+            coords = provider_coordinate_key(provider_point(point))
+        except (KeyError, TypeError, ValueError):
+            continue
+        origin_aliases[coords].append((task_id, point['id']))
+        if task_id is not None:
+            destination_aliases[coords].append(task_id)
+    metrics, receipt_keys, outgoing = {}, {}, defaultdict(list)
+    for key, row in indexed:
+        control()
+        destinations = destination_aliases.get(row.destination)
+        possible_origins = origin_aliases.get(row.origin)
+        if not destinations or not possible_origins or row.received_at < road.batch_started_at:
+            continue
+        metric = {'meters': row.meters, 'seconds': row.seconds, 'received_at': row.received_at,
+                  'evidence_hash': row.evidence_hash}
+        if not _signed_metrics(metric):
+            continue
+        for origin_id, point_id in possible_origins:
+            for destination_id in destinations:
+                if origin_id == destination_id:
+                    continue
+                control()
+                metrics[point_id, destination_id] = metric
+                receipt_keys[key] = metric
+                outgoing[origin_id].append((destination_id, row.meters, row.seconds))
+    rows = []
+    for origin_id, _ in origins:
+        control()
+        for destination_id, meters, seconds in sorted(outgoing.get(origin_id, ())):
+            rows.append((origin_id, destination_id, meters, seconds))
+    control()
+    measured = _MeasuredRoad(road, metrics, receipt_keys, fresh=True)
+    measured.indexed_current_receipts = True
+    return measured, rows
+
+
 def _measure(road, data, fresh, control):
     tasks = data['tasks']
     warehouse = data['warehouses'][next(iter(tasks.values()))['warehouse_id']]
     ids = sorted(tasks)
     origins = [(None, warehouse), *((i, tasks[i]) for i in ids)]
+    experiments = getattr(road, 'deep_experiments', None)
+    if fresh and warehouse['id'] not in tasks and getattr(experiments, 'pyvrp_indexed_current_receipts', False):
+        indexed = road.indexed_batch_receipts(control)
+        if indexed is not None:
+            return _measure_indexed(road, origins, indexed, control)
     metrics, receipt_keys, rows = {}, {}, []
     for origin_id, origin in origins:
         for destination_id in ids:
@@ -221,6 +269,8 @@ def improve(body, road, incumbent, *, seconds, seed, control, cancelled):
                        frozen_outside_routes=len(outside))
         measured, rows = _measure(road, scoped, fresh, generation_control)
         details.update(measured_directions=len(rows), preparation_seconds=round(monotonic() - started, 6))
+        if fresh and getattr(getattr(road, 'deep_experiments', None), 'pyvrp_indexed_current_receipts', False):
+            details['indexed_current_receipts'] = measured.indexed_current_receipts
         if not rows:
             details['stop_reason'] = 'NO_MEASURED_DIRECTIONS'
             return incumbent, details
