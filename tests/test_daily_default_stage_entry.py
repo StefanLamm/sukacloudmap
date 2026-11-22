@@ -73,7 +73,7 @@ def test_daily_default_disables_unadopted_stages_and_keeps_legacy_long_budget_lo
         'complete_assignment_pricing': False, 'fragment_merging': False,
         'joint_reoptimization': False, 'scalable_joint_search': False, 'stage_budget_reservation': False,
         'critical_edge_collection': True, 'quote_group_rotation': False, 'gain_time_allocation': False,
-        'generation_selection_loop': expect_cycles, 'pyvrp_group_generation': True,
+        'generation_selection_loop': expect_cycles, 'pyvrp_group_generation': budget < 600,
         'pyvrp_indexed_current_receipts': False,
     }
     stages = {row['stage']: row for row in result['algorithm']['stages']}
@@ -84,7 +84,8 @@ def test_daily_default_disables_unadopted_stages_and_keeps_legacy_long_budget_lo
     assert not stages['CRITICAL_EDGE_COLLECTION']['details']['skipped']
     assert stages['JOINT_REOPTIMIZATION']['details']['stop_reason'] == 'SWITCH_DISABLED'
     assert stages['JOINT_REOPTIMIZATION']['details']['skipped']
-    assert stages['PYVRP_GROUP_GENERATION']['details']['stop_reason'] == 'UNSUPPORTED_ROAD'
+    assert stages['PYVRP_GROUP_GENERATION']['details']['stop_reason'] == (
+        'UNSUPPORTED_ROAD' if budget < 600 else 'SWITCH_DISABLED')
     expansion = stages['CANDIDATE_EXPANSION']['details']
     assert expansion['stop_reason'] == ('TEST_CYCLES_ENTERED' if expect_cycles else 'SWITCH_DISABLED')
     assert expansion['skipped'] is (not expect_cycles)
@@ -162,6 +163,7 @@ def test_pyvrp_group_stage_at_the_ordinary_deep_entry(monkeypatch, budget, mode)
                            experiments={'pyvrp_group_generation': True})
     stage = next(row for row in result['algorithm']['stages'] if row['stage'] == 'PYVRP_GROUP_GENERATION')
     assert complete(normalize(body), result)
+    assert not result['algorithm']['experiments']['pyvrp_indexed_current_receipts']
     if mode == 'skip':
         assert events == [] and stage['details']['stop_reason'] == 'INSUFFICIENT_PHASE_BUDGET'
     else:
@@ -175,8 +177,22 @@ def test_pyvrp_group_stage_at_the_ordinary_deep_entry(monkeypatch, budget, mode)
         assert stage['details']['stop_reason'] == result['algorithm']['stop_reason'] == 'CANCELLED'
 
 
-@pytest.mark.parametrize('mode', ['daily_driving', 'explicit_off', 'research', 'disabled_roads', 'truck'])
-def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(settings, monkeypatch, mode):
+@pytest.mark.parametrize('mode,budget,phase_enabled,index_enabled', [
+    ('daily_driving', 300, True, True),
+    ('daily_driving', 599, True, True),
+    ('daily_driving', 600, False, False),
+    ('daily_driving', 2000, False, False),
+    ('explicit_off', 300, True, False),
+    ('explicit_on', 600, True, True),
+    ('explicit_on', 2000, True, True),
+    ('index_only', 2000, False, True),
+    ('research', 300, True, False),
+    ('disabled_roads', 300, True, False),
+    ('truck', 300, True, False),
+    ('truck', 2000, False, False),
+])
+def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(
+        settings, monkeypatch, mode, budget, phase_enabled, index_enabled):
     body, matrix = problem(n=2, cars=1, capacity=2)
     for index, point in enumerate(body['warehouses'] + body['tasks']):
         point.update(longitude=118. + index / 100, latitude=31., crs='GCJ02')
@@ -186,7 +202,6 @@ def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(settin
     settings.truck_live_calls_enabled = mode == 'truck'
     adapter = TruckRoad if mode == 'truck' else DrivingRoad
     road = adapter(settings, production_planning=mode != 'research', fresh_only=True)
-    expected = mode == 'daily_driving'
     events = []
 
     def forbid(*_args):
@@ -200,18 +215,18 @@ def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(settin
                         lambda _data, _road, current, *_args: (current, {'elapsed_seconds': 0.}))
 
     def first_seal(data, current, anchor, *_args):
-        assert current.deep_experiments.pyvrp_indexed_current_receipts is expected
+        assert current.deep_experiments.pyvrp_indexed_current_receipts is index_enabled
         if isinstance(current, DrivingRoad):
             evidence = raw(current, data['warehouses']['W'], data['tasks']['0'], 1000)
             current._seal_batch_receipt(*evidence)
-            assert (current.indexed_batch_receipts(lambda: None) is not None) is expected
+            assert (current.indexed_batch_receipts(lambda: None) is not None) is index_enabled
         events.append('first_seal')
         return anchor, {'elapsed_seconds': 0.}, []
 
     def inspect_phase(_body, current, anchor, *, control, **_kwargs):
         if isinstance(current, DrivingRoad):
             measured, rows = _measure(current, normalize(body), fresh=True, control=control)
-            assert measured.indexed_current_receipts is expected
+            assert measured.indexed_current_receipts is index_enabled
             assert rows == [(None, '0', 1000, 5)]
         else:
             assert not hasattr(current, 'indexed_batch_receipts')
@@ -220,9 +235,12 @@ def test_daily_receipt_index_is_bound_before_the_first_fresh_driving_seal(settin
 
     monkeypatch.setattr('app.route_deep._pre_selection_macros', first_seal)
     monkeypatch.setattr('app.route_pyvrp_tail.improve', inspect_phase)
-    flags = {'pyvrp_group_generation': True, 'pyvrp_indexed_current_receipts': False} if mode == 'explicit_off' else None
-    result = optimize_deep(body, road, 300, experiments=flags)
-    assert events == ['first_seal', 'pyvrp']
-    assert result['algorithm']['experiments']['pyvrp_indexed_current_receipts'] is expected
+    flags = None
+    if mode in {'explicit_off', 'explicit_on', 'index_only'}:
+        flags = {'pyvrp_group_generation': phase_enabled, 'pyvrp_indexed_current_receipts': index_enabled}
+    result = optimize_deep(body, road, budget, experiments=flags)
+    assert events == ['first_seal'] + (['pyvrp'] if phase_enabled else [])
+    assert result['algorithm']['experiments']['pyvrp_group_generation'] is phase_enabled
+    assert result['algorithm']['experiments']['pyvrp_indexed_current_receipts'] is index_enabled
     assert result['total_fee'] == incumbent['total_fee'] and road.calls == 0
     assert not hasattr(road, 'deep_experiments')

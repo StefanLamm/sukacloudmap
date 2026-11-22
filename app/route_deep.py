@@ -409,17 +409,18 @@ def optimize_deep(body, road, budget_seconds=300, seed=0, cancelled=lambda: Fals
     data = normalize(body)
     budget = _Budget(road, budget_seconds, cancelled, wall_budget_seconds)
     use_live_batch = isinstance(road, DrivingRoad) and getattr(road, 'fresh_only', False)
+    short_budget_profile = budget.seconds < 600
     # Daily planning uses the measured quote-group phase alongside diagnostics
-    # and road discovery. An explicit experiment configuration keeps each
-    # phase independently controllable in research comparisons.
+    # and road discovery on the short profile. Long runs retain their existing
+    # expansion. Explicit experiments keep the phases independently selectable.
     switches = (DeepExperiments(fragment_merging=False, complete_assignment_pricing=False,
                                joint_reoptimization=False, scalable_joint_search=False,
                                stage_budget_reservation=False, critical_edge_collection=True,
-                               pyvrp_group_generation=True,
-                               pyvrp_indexed_current_receipts=bool(use_live_batch
+                               pyvrp_group_generation=short_budget_profile,
+                               pyvrp_indexed_current_receipts=bool(short_budget_profile and use_live_batch
                                    and getattr(road, 'production_planning', False)
                                    and getattr(getattr(road, 'settings', None), 'road_calls_enabled', False)),
-                               generation_selection_loop=(budget.seconds >= 600 and len(data['tasks']) > 8))
+                               generation_selection_loop=(not short_budget_profile and len(data['tasks']) > 8))
                 if experiments is None else DeepExperiments.parse(experiments))
     diagnostics = SearchDiagnostics(budget, len(data['tasks'])) if switches.diagnostics else None
     notify = progress or (lambda value: None)
