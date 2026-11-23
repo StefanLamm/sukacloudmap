@@ -61,6 +61,95 @@ def test_local_budget_returns_empty_even_when_native_setup_cannot_stop(monkeypat
     assert len(processes) == 1 and processes[0][0].poll() is not None
 
 
+def test_generation_timeout_reaps_child_and_recovers_only_atomic_checkpoint(monkeypatch):
+    child_code = """
+import json, sys, time
+from pathlib import Path
+root = Path(sys.argv[1])
+temporary = root / 'checkpoint.tmp'
+message = {'schema': 1, 'proposals': [[0, 0, [0, 1]]],
+           'diagnostics': {'stop_reason': 'NATIVE_GENERATION_DEADLINE_CHECKPOINT',
+                           'version': '0.14.0', 'observed_feasible_best_events': 3}}
+temporary.write_text(json.dumps(message))
+temporary.replace(root / 'checkpoint.json')
+temporary.write_text('{')
+time.sleep(20)
+"""
+    processes = fake_child(monkeypatch, child_code)
+    proposals, diagnostics = runtime.generate(model_group(), ALL_DIRECTIONS, seconds=2, seed=0,
+        control=lambda: None, absolute_deadline=monotonic() + .5)
+    assert proposals == [{'vehicle_id': 'active', 'task_ids': ['a', 'b']}]
+    assert diagnostics['stop_reason'] == 'NATIVE_GENERATION_DEADLINE_CHECKPOINT'
+    assert diagnostics['observed_feasible_best_events'] == 3
+    assert len(processes) == 1 and processes[0][0].poll() is not None
+
+
+@pytest.mark.parametrize('mode,expected', [
+    ('normal', 'SEARCH_COMPLETED'),
+    ('worker_error', 'PYVRP_WORKER_ERROR'),
+    ('wrong_direction', 'PYVRP_CHECKPOINT_INVALID'),
+    ('repeated_vehicle', 'PYVRP_CHECKPOINT_INVALID'),
+    ('missing_required', 'PYVRP_CHECKPOINT_INVALID'),
+    ('cancel', 'CANCELLED'),
+    ('wall', 'WALL_BUDGET'),
+    ('cancel_before_decode', 'CANCELLED'),
+])
+def test_checkpoint_is_only_used_for_local_cutoff_and_checked_before_return(monkeypatch, mode, expected):
+    clock = 0.
+    hard_reason = None
+    monkeypatch.setattr(runtime, 'monotonic', lambda: clock)
+    data = model_group()
+    if mode == 'missing_required':
+        data['tasks']['b']['common_unit_price'] = None
+
+    def control():
+        if hard_reason:
+            raise StopSearch(hard_reason)
+
+    def run(directory, check, deadline):
+        nonlocal clock, hard_reason
+        checkpoint = [[0, 0, [1, 0]]] if mode == 'wrong_direction' else [[0, 0, [0]]]
+        if mode == 'repeated_vehicle':
+            checkpoint.append([0, 0, [1]])
+        runtime._write_checkpoint(directory / 'checkpoint.json', checkpoint, 1)
+        if mode == 'worker_error':
+            clock = deadline
+            return 7
+        if mode == 'normal':
+            runtime._write_json(directory / 'result.json', {'schema': 1, 'proposals': [[0, 0, [0, 1]]],
+                'diagnostics': {'stop_reason': 'SEARCH_COMPLETED', 'version': '0.14.0'}})
+            return 0
+        assert deadline == 1.
+        clock = deadline
+        if mode in {'cancel', 'wall'}:
+            hard_reason = expected
+        check()
+
+    read = runtime._read_json
+
+    def read_checkpoint(path):
+        nonlocal hard_reason
+        assert mode not in {'cancel', 'wall', 'worker_error'} or path.name != 'checkpoint.json'
+        value = read(path)
+        if mode == 'cancel_before_decode':
+            hard_reason = expected
+        return value
+
+    monkeypatch.setattr(runtime, '_run_worker', run)
+    monkeypatch.setattr(runtime, '_read_json', read_checkpoint)
+    args = (data, ALL_DIRECTIONS[:-1])
+    kwargs = dict(seconds=2., seed=0, control=control, absolute_deadline=1.)
+    if expected in {'CANCELLED', 'WALL_BUDGET'}:
+        with pytest.raises(StopSearch) as stop:
+            runtime.generate(*args, **kwargs)
+        assert stop.value.reason == expected
+    else:
+        proposals, diagnostics = runtime.generate(*args, **kwargs)
+        assert diagnostics['stop_reason'] == expected
+        assert proposals == ([{'vehicle_id': 'active', 'task_ids': ['a', 'b']}]
+                             if mode == 'normal' else [])
+
+
 def test_valid_proposals_retain_observed_orders_and_only_local_package_environment(monkeypatch, tmp_path):
     monkeypatch.setenv('PYTHONPATH', str(tmp_path))
     monkeypatch.setenv('SUKA_TEST_SETTING', 'private')

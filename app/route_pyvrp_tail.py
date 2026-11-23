@@ -276,7 +276,7 @@ def improve(body, road, incumbent, *, seconds, seed, control, cancelled):
             return incumbent, details
         generation_control()
         specs, native = generate(scoped, rows, seconds=generation_deadline - monotonic(), seed=seed,
-                                 control=generation_control)
+                                 control=checkpoint, absolute_deadline=generation_deadline)
         details.update(native=native, generation_seconds=round(monotonic() - started, 6))
         checkpoint()
         proposals = {}

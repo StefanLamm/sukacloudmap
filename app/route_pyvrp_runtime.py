@@ -22,6 +22,8 @@ _MAX_JSON_BYTES = 32 * 1024 * 1024
 _MAX_MODEL_VALUE = 10**9
 _POLL_SECONDS = .02
 _MAX_RETURN_RESERVE_SECONDS = .25
+_CHECKPOINT_INTERVAL_SECONDS = 1.
+_CHECKPOINT_REASON = 'NATIVE_GENERATION_DEADLINE_CHECKPOINT'
 _SKIPS = {'TIME_BUDGET', 'PYVRP_UNAVAILABLE', 'PYVRP_VERSION_MISMATCH',
           'PYVRP_WORKER_ERROR', 'PYVRP_UNSUPPORTED_INPUT'}
 
@@ -131,6 +133,17 @@ def _read_json(path):
     return value
 
 
+def _write_checkpoint(path, proposals, best_events):
+    temporary = path.with_suffix('.tmp')
+    try:
+        _write_json(temporary, {'schema': _WIRE_VERSION, 'proposals': proposals,
+            'diagnostics': {'stop_reason': _CHECKPOINT_REASON, 'version': _VERSION,
+                            'observed_feasible_best_events': best_events}})
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _worker_env():
     allowed = ('PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE')
     env = {name: os.environ[name] for name in allowed if name in os.environ}
@@ -147,13 +160,19 @@ def _run_worker(directory, check, deadline):
                                stderr=subprocess.DEVNULL, env=_worker_env(), close_fds=True)
     try:
         while True:
+            status = process.poll()
+            if status is not None:
+                return status
             check()
             try:
-                status = process.wait(timeout=min(_POLL_SECONDS, max(0, deadline - monotonic())))
-                check()
-                return status
+                return process.wait(timeout=min(_POLL_SECONDS, max(0, deadline - monotonic())))
             except subprocess.TimeoutExpired:
                 continue
+    except _StageExpired:
+        status = process.poll()
+        if status is not None:
+            return status
+        raise
     finally:
         if process.poll() is None:
             try:
@@ -163,7 +182,7 @@ def _run_worker(directory, check, deadline):
         process.wait()
 
 
-def _decode_response(response, task_ids, capacities, directions, clients, check):
+def _decode_response(response, task_ids, capacities, directions, clients, check, *, checkpoint=False):
     rows, diagnostics = response['proposals'], response['diagnostics']
     if (type(rows) is not list or type(diagnostics) is not dict or len(diagnostics) > 24 or
             any(type(value) not in (str, int, float, bool, type(None)) or
@@ -171,11 +190,19 @@ def _decode_response(response, task_ids, capacities, directions, clients, check)
                 for value in diagnostics.values())):
         raise ValueError('Invalid PyVRP worker response.')
     reason = diagnostics['stop_reason']
-    if reason in _SKIPS and not rows:
+    if not checkpoint and reason in _SKIPS and not rows:
         return [], diagnostics
-    if reason != 'SEARCH_COMPLETED' or diagnostics.get('version') != _VERSION:
+    if (reason != (_CHECKPOINT_REASON if checkpoint else 'SEARCH_COMPLETED')
+            or diagnostics.get('version') != _VERSION):
         raise ValueError('Invalid PyVRP worker result status.')
+    if checkpoint and (not 0 < len(rows) <= len(task_ids)
+                       or set(response) != {'schema', 'proposals', 'diagnostics'}
+                       or set(diagnostics) != {'stop_reason', 'version', 'observed_feasible_best_events'}
+                       or type(diagnostics['observed_feasible_best_events']) is not int
+                       or diagnostics['observed_feasible_best_events'] < 1):
+        raise ValueError('Invalid PyVRP checkpoint metadata.')
     seen = set()
+    assigned, used = set(), set()
     proposals = []
     for group, member, order in rows:
         check()
@@ -188,12 +215,19 @@ def _decode_response(response, task_ids, capacities, directions, clients, check)
         key = group, member, tuple(order)
         if key in seen:
             raise ValueError('A PyVRP proposal was repeated on the wire.')
+        if checkpoint:
+            if (group, member) in used or not assigned.isdisjoint(order):
+                raise ValueError('The PyVRP checkpoint repeats a vehicle or task.')
+            used.add((group, member))
+            assigned.update(order)
         seen.add(key)
         proposals.append({'vehicle_id': capacities[group][1][member], 'task_ids': [task_ids[index] for index in order]})
+    if checkpoint and any(row[6] is None and index not in assigned for index, row in enumerate(clients)):
+        raise ValueError('The PyVRP checkpoint is incomplete.')
     return proposals, diagnostics
 
 
-def generate(data, measured_rows, *, seconds, seed, control):
+def generate(data, measured_rows, *, seconds, seed, control, absolute_deadline=None):
     """Return route identities. The caller independently reprices and checks them."""
     started = monotonic()
 
@@ -204,6 +238,10 @@ def generate(data, measured_rows, *, seconds, seed, control):
     if type(seconds) not in (float, int) or not isfinite(seconds) or seconds <= 0:
         return result('TIME_BUDGET')
     deadline = started + seconds
+    if absolute_deadline is not None:
+        if type(absolute_deadline) not in (float, int) or not isfinite(absolute_deadline):
+            return result('TIME_BUDGET')
+        deadline = min(deadline, absolute_deadline)
 
     def check():
         control()
@@ -220,12 +258,31 @@ def generate(data, measured_rows, *, seconds, seed, control):
             directory = Path(temporary)
             _write_json(directory / 'request.json', request)
             check()
-            if _run_worker(directory, check, deadline) != 0:
-                return result('PYVRP_WORKER_ERROR')
-            check()
-            response = _read_json(directory / 'result.json')
-            proposals, diagnostics = _decode_response(response, task_ids, capacities, directions, request['clients'], check)
-        check()
+            try:
+                status = _run_worker(directory, check, deadline)
+                control()
+                if status != 0:
+                    return result('PYVRP_WORKER_ERROR')
+                check()
+                response = _read_json(directory / 'result.json')
+                proposals, diagnostics = _decode_response(
+                    response, task_ids, capacities, directions, request['clients'], check)
+                check()
+            except _StageExpired:
+                # The child has been reaped. The wider caller control still
+                # enforces cancellation, the stage budget and the job deadline.
+                control()
+                try:
+                    response = _read_json(directory / 'checkpoint.json')
+                    proposals, diagnostics = _decode_response(
+                        response, task_ids, capacities, directions, request['clients'], control, checkpoint=True)
+                except FileNotFoundError:
+                    control()
+                    return result('TIME_BUDGET')
+                except (OSError, KeyError, ValueError, TypeError, RecursionError, ArithmeticError):
+                    control()
+                    return result('PYVRP_CHECKPOINT_INVALID')
+        control()
     except _StageExpired:
         return result('TIME_BUDGET')
     except (OSError, KeyError, ValueError, TypeError, RecursionError, ArithmeticError):
@@ -261,7 +318,7 @@ def _validate_request(request):
         seen.add((origin, destination))
 
 
-def _solve(request):
+def _solve(request, checkpoint_path=None):
     from pyvrp import IteratedLocalSearchCallbacks, IteratedLocalSearchParams, Model, SolveParams
 
     started = monotonic()
@@ -310,13 +367,18 @@ def _solve(request):
                        distance=meter_cost * meters, duration=duration)
     pending = {}
     best_events = 0
+    next_checkpoint = started
 
     class CandidateObserver(IteratedLocalSearchCallbacks):
-        def on_best(self, best):
-            nonlocal best_events
-            if monotonic() >= request['deadline']:
+        def on_best(self, best, allow_checkpoint=True):
+            nonlocal best_events, next_checkpoint
+            instant = monotonic()
+            if instant >= request['deadline']:
                 return
             best_events += 1
+            capture = (allow_checkpoint and checkpoint_path is not None
+                       and instant >= next_checkpoint and best.is_feasible())
+            snapshot = [] if capture else None
             members = [iter(range(count)) for _, count in groups]
             for route in best.routes():
                 if monotonic() >= request['deadline']:
@@ -324,7 +386,17 @@ def _solve(request):
                 order = tuple(activity.idx for activity in route if activity.is_client())
                 if order and route.is_feasible():
                     group = route.vehicle_type()
-                    pending.setdefault((group, next(members[group]), order), None)
+                    proposal = (group, next(members[group]), order)
+                    pending.setdefault(proposal, None)
+                    if snapshot is not None:
+                        snapshot.append(proposal)
+            if snapshot:
+                next_checkpoint = monotonic() + _CHECKPOINT_INTERVAL_SECONDS
+                try:
+                    _write_checkpoint(checkpoint_path, snapshot, best_events)
+                except (OSError, ValueError):
+                    # An optional checkpoint cannot invalidate the final worker response.
+                    pass
 
     observer = CandidateObserver()
     check()
@@ -332,7 +404,7 @@ def _solve(request):
     result = model.solve(stop, seed=request['seed'], collect_stats=False, display=False,
                          params=options, missing_value=maximum + 1)
     if result.best.is_feasible():
-        observer.on_best(result.best)
+        observer.on_best(result.best, allow_checkpoint=False)
     return list(pending), {'stop_reason': 'SEARCH_COMPLETED', 'version': _VERSION,
         'iterations': result.num_iterations, 'native_feasible': result.best.is_feasible(),
         'observed_feasible_best_events': best_events, 'worker_solve_elapsed_seconds': round(monotonic() - started, 6),
@@ -348,7 +420,7 @@ def _worker(directory):
         _validate_request(request)
         installed = version('pyvrp')
         if installed == _VERSION:
-            proposals, diagnostics = _solve(request)
+            proposals, diagnostics = _solve(request, directory / 'checkpoint.json')
         else:
             diagnostics = {'stop_reason': 'PYVRP_VERSION_MISMATCH', 'version': installed}
     except (PackageNotFoundError, ImportError):

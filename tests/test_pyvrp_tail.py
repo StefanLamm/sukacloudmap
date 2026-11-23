@@ -68,8 +68,9 @@ def test_s4_receipt_rebinding_keeps_mandatory_and_outside_incidence_and_adopts_a
     body, road, data, incumbent, receipts = fixture(provider_request=provider_request)
     original = deepcopy(incumbent)
 
-    def generate(group, rows, *, seconds, seed, control):
+    def generate(group, rows, *, seconds, seed, control, absolute_deadline):
         control()
+        assert absolute_deadline > 0
         assert 0 < seconds <= 2. and seed == 2
         assert set(group['tasks']) == {'A', 'B'} and set(group['vehicles']) == {'V0', 'V2'}
         assert set(rows) == {(None, 'A', 1000, 10), ('A', 'B', 10000, 10),
